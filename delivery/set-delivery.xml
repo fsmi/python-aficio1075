@@ -1,6 +1,29 @@
 POST /DeliveryInput HTTP/1.0
 Content-Type: text/xml; charset=UTF-8
-Content-Length: 729
 SOAPAction: http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput#setDeliveryService
 
-<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><di:setDeliveryService xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput"><ticket><encoding>CHARENC_WINDOWS_1252</encoding><string>TICKETSTRING</string></ticket><address><encoding>CHARENC_WINDOWS_1252</encoding><string>ADRESSE</string></address><capability><type>3</type><commentSupported>false</commentSupported><directMailAddressSupported>false</directMailAddressSupported><mdnSupported>false</mdnSupported><autoSynchronizeSupported>true</autoSynchronizeSupported><faxDeliverySupported>false</faxDeliverySupported></capability></di:setDeliveryService></s:Body></s:Envelope>
+<s:Envelope
+    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+    s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+  <s:Body>
+    <di:setDeliveryService
+        xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
+      <ticket>
+        <encoding>CHARENC_WINDOWS_1252</encoding>
+	<string>TICKETSTRING</string>
+      </ticket>
+      <address>
+        <encoding>CHARENC_WINDOWS_1252</encoding>
+	<string>ADRESSE</string>
+      </address>
+      <capability>
+        <type>3</type>
+	<commentSupported>false</commentSupported>
+	<directMailAddressSupported>false</directMailAddressSupported>
+	<mdnSupported>false</mdnSupported>
+	<autoSynchronizeSupported>true</autoSynchronizeSupported>
+	<faxDeliverySupported>false</faxDeliverySupported>
+      </capability>
+    </di:setDeliveryService>
+  </s:Body>
+</s:Envelope>

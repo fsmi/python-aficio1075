@@ -1,92 +1,179 @@
 #!/bin/bash
 
+function log {
+  local level=$1
+  local msg=$2
+
+#  echo "$(date "+%H:%M:%S.%N") scanrouter-daemon[$$] $level: $msg"
+  echo "scanrouter[$$] $level: $msg"
+}
+function logdebug {
+  log "debug" "$@"
+}
+function logerror {
+  log "error" "$@"
+}
+function lognotice {
+  log "notice" "$@"
+}
+
 function process {
-  if [ "$3" == ".end" ]; then
-    VERZEICHNIS=$1
-    echo $VERZEICHNIS
-    pages=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep subdocCount|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
-    contenttype=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep contentType|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+  local watched_filename=$1
+  local event_list=$2
+  local event_filename=$3
 
-    TEMPFILE=$(mktemp "/tmp/scantool-XXXXXX")
-    if [ $contenttype == "image/tiff" ]; then
-      for i in $(seq 1 $pages); do
-        tiff2pdf -o $TEMPFILE-$i.pdf $VERZEICHNIS/page$(printf %04d $i).tif
-      done
-    fi
-
-    if [ $contenttype == "image/jpeg" ]; then
-      # sollte funktionieren, sofern der Drucker den contenttype richtig setzt...
-      for i in $(seq 1 $pages); do
-        jpegtopnm $VERZEICHNIS/page$(printf %04d $i).jpg > $TEMPFILE-$i.pnm
-        pnmtops $TEMPFILE-$i.pnm|ps2pdf - $TEMPFILE-$i.pdf
-      done
-    fi
-
-    receivercount=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep receiverCount|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
-    if [ $receivercount -gt 1 ]; then
-      echo "loopstart"
-      cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep receiverName|sed -e s/"[ ]*<[^>]*>[ ]*"/" Cg== "/g|perl -M"MIME::Base64" -ne 'print decode_base64($_)'|grep -v "^$"
-      for encodedreceiver in $(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep receiverName|sed -e s/" "/"_"/g); do
-        receiver=$(echo $encodedreceiver|sed -e s/"[_]*<[^>]*>"//g|perl -M"MIME::Base64" -ne 'print decode_base64($_)')
-	output $receiver $TEMPFILE
-      done
-      echo "loopdone"
-    else
-      receiver=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep receiverName|sed -e s/"[ ]*<[^>]*>[ ]*"//g|perl -M"MIME::Base64" -ne 'print decode_base64($_)')
-      echo $receiver
-      output $receiver $TEMPFILE
-    fi
-  # Jetzt sollten wir wohl noch aufräumen..
-  rm $TEMPFILE*
+  if [ "$event_filename" != ".end" ]; then
+    # Not the end of a transaction.
+    return
   fi
+  if [ ! -d $watched_filename ]; then
+    # Not a directory.
+    return
+  fi
+
+  scan_dir=$watched_filename
+  logdebug "Processing directory $scan_dir"
+
+  local pages=$( \
+      cat $scan_dir/docinfo.xml | \
+      xmlstarlet fo | \
+      grep subdocCount | \
+      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+
+  local contenttype=$( \
+      cat $scan_dir/docinfo.xml | \
+      xmlstarlet fo | \
+      grep contentType | \
+      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+
+  local temp_dir=$(mktemp -t -d "scantool-XXXXXX")
+
+  logdebug "Content-type is $contenttype" 
+  case "$contenttype" in
+    (image/tiff)
+      for i in $(seq 1 $pages); do
+        tiff2pdf -o $temp_dir/$i.pdf $scan_dir/page$(printf %04d $i).tif
+      done
+      ;;
+    (image/jpeg)
+      for i in $(seq 1 $pages); do
+        jpegtopnm $scan_dir/page$(printf %04d $i).jpg > $temp_dir/$i.pnm
+        pnmtops $temp_dir/$i.pnm | \
+            ps2pdf - $temp_dir/$i.pdf
+      done
+      ;;
+    (*)
+      logerror "Content-type $contenttype is unknown, aborting"
+      # Don't forget to clean up, even if we couldn't actually do anything
+      # useful with the data.
+      rm -r $temp_dir
+      rm -r $scan_dir
+      return
+  esac
+
+  receivercount=$( \
+      cat $scan_dir/docinfo.xml | \
+      xmlstarlet fo | \
+      grep receiverCount | \
+      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+
+  if [ $receivercount -gt 1 ]; then
+    for encoded_receiver in $(cat $scan_dir/docinfo.xml | \
+                              xmlstarlet fo | \
+                              grep receiverName | \
+                              sed -e s/" "/"_"/g); do
+      receiver=$( \
+          echo $encoded_receiver | \
+          sed -e s/"[_]*<[^>]*>"//g | \
+          perl -M"MIME::Base64" -ne 'print decode_base64($_)')
+      output $receiver $temp_dir $pages
+    done
+  else
+    receiver=$( \
+        cat $scan_dir/docinfo.xml | \
+        xmlstarlet fo | \
+        grep receiverName | \
+        sed -e s/"[ ]*<[^>]*>[ ]*"//g | \
+        perl -M"MIME::Base64" -ne 'print decode_base64($_)')
+
+    output $receiver $temp_dir $pages
+  fi
+
+  # Don't forget to clean up.
+  rm -r $temp_dir
+  rm -r $scan_dir
 }
 
 function output {
-outputtype=$(grep "^$1" $scanrouterconfig|cut -d"," -f3)
+  local receiver=$1
+  local source_dir=$2
+  local pages=$3
 
-# Ausgabeoption "plain" (bzw. falls keine Option angegeben), packe einfach alles, was du bekommen hast in ein PDF und lege es in ein Verzeichnis
-if [ x$outputtype == "xplain" ] || [ x$outputtype == "x" ]; then
-outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"," -f2)
-filebasename=$(date +%Y%m%d%H%M);
-pdftk $(for j in $(seq 1 $pages); do echo -n "$2-$j.pdf "; done) cat output $outputdir/$filebasename-$(i=0;while [ -e $outputdir/$filebasename-$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
-fi
-
-# Ausgabeoption "protokoll", packe alle nicht-leeren Seiten in ein PDF und lege es mit fortlaufender Nummer in ein Verzeichnis
-if [ x$outputtype == "xprotokoll" ]; then
-outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"," -f2)
-filebasename=$(date +%Y%m%d%H%M);
-filelist=""
-emptypages=0
-for j in $(seq 1 $pages); do
-  echo -n "$j: "
-  echo -n "$(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f5) "
-  if [ $(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f5) -gt 30000 ]; then
-    echo beschriftet
-    filelist=$(echo $filelist $2-$j.pdf)
-    emptypages=0
-  else
-    if [ $emptypages -eq 1 ]; then
-      echo zweite leere
-      echo $filelist
-      pdftk $filelist cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
-      emptypages=0
-      filelist=""
-    else
-      emptypages=1
-      echo erste leere
-    fi
+  logdebug "Outputting $pages page(s) for receiver $receiver."
+  local config_line=$(grep "^$receiver," $output_types_map_file)
+  if [ "$config_line" == "" ]; then
+    logerror "Receiver '$receiver' not configured, aborting."
+    return
   fi
-done
 
-if [ "x$filelist" != "x" ]; then
- pdftk $filelist cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
-fi
-#pdftk $(for j in $(seq 1 $pages); do if [ $(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f 5) -gt 20000 ]; then echo "$2-$j.pdf "; fi; done) cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
-fi
+  local output_type=$(echo $config_line | cut -d"," -f3)
+  local output_dir=$(echo $config_line | cut -d"," -f2)
+
+  if [ "$output_type" == "" ]; then
+    # Default to plain.
+    output_type="plain"
+  fi
+
+  logdebug "Outputting $output_type to $output_dir."
+  case "$output_type" in
+    (protokoll)
+      # Ausgabeoption "protokoll", packe alle nicht-leeren Seiten in ein PDF und
+      # lege es mit fortlaufender Nummer in ein Verzeichnis
+      local nonempty_documents=$(\
+          for j in $(seq 1 $pages); do \
+            if [ $(ls -l $source_dir/$j.pdf | \
+                   sed -e s/"  "/" "/g | \
+                   cut -d" " -f 5) -gt 20000 ]; then \
+              echo "$source_dir/$j.pdf "; \
+            fi; \
+          done)
+      local next_unique_name=$output_dir/$( \
+          i=0; \
+          while [ -e $output_dir/$i.pdf ]; do \
+            i=$(($i+1)); \
+          done; \
+          echo $i).pdf
+      pdftk $nonempty_documents cat output $next_unique_name
+      ;;
+    (plain)
+      # Ausgabeoption "plain" (bzw. falls keine Option angegeben), packe einfach
+      # alles, was du bekommen hast in ein PDF und lege es in ein Verzeichnis
+      local file_base_name=$(date +%Y%m%d%H%M);
+      local documents=$(\
+          for j in $(seq 1 $pages); do \
+            echo -n "$source_dir/$j.pdf "; \
+          done)
+      local next_unique_name=$output_dir/$file_base_name-$( \
+          i=0; \
+          while [ -e $output_dir/$file_base_name-$i.pdf ]; do \
+            i=$(($i+1)); \
+          done; \
+          echo $i).pdf
+
+      pdftk $documents cat output $next_unique_name
+      ;;
+  esac
 }
 
+#config_file="/etc/scanrouter-daemon.conf"
+#if [ ! -r $config_file ]; then
+#  logerror "Could not read configuration file $config_file, exiting."
+#  exit 1
+#fi
+#. $config_file
 
+output_types_map_file="scanrouter-daemon.conf"
 
-scanrouterconfig="scanrouter-daemon.conf"
-inotifywait -mr -e CREATE /home/ftp/d0000746f9bf7/|while read line; do process $line; done
-
+lognotice "Daemon started."
+inotifywait -mr -e CREATE /home/ftp/d0000746f9bf7/ | \
+    while read line; do process $line; done
