@@ -1,3 +1,5 @@
+Im FTP-Root muss es ein Verzeichnis 'd<MAC-Adresse' geben. Dort wird je job ein
+Verzeichnis angelegt.
 
 == ./delivery/auth-delivery.xml ==
 Benötigte XML Datei um sich dem Drucker gegenüber zu 
@@ -39,7 +41,3 @@ Wichtig:
 Anonymer Login muss aktiviert sein 
 und 
 der Server muss auf Port 3670 lauschen.
-
-== ./FtpRoot/* ==
-Ein Beispiel, wie ein FTP-Root aussehen muss, damit der
-Drucker damit zufrieden ist.
