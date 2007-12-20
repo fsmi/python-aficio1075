@@ -1,0 +1,45 @@
+
+== ./delivery/auth-delivery.xml ==
+Benötigte XML Datei um sich dem Drucker gegenüber zu 
+authentifizieren. Hier steht ein codiertes Passwort 
+drin, welches bei Bedarf angepasst werden muss. Es 
+kann mit 
+echo "passwort"|perl -M"MIME::Base64" -ne 'print encode_base64($_)'
+generiert werden.
+
+== ./delivery/set-delivery.xml ==
+Wird an den Drucker geschickt um ihm mitzuteilen, 
+welcher Rechner jetzt sein Delivery-Server ist.
+
+== ./scanrouter-daemon ==
+Der Daemon, der die gescannten Dateien weiter-
+verarbeitet, nachdem sie per FTP auf den Rechner
+geladen wurden.
+Hier drin kann man einstellen, wo die Datei 
+scanrouter-daemon.conf liegt.
+
+== ./scanrouter-daemon.conf ==
+Ordnet Drucker-Ziele zu Verzeichnissen zu. 
+Format:
+"Druckerziel"="Verzeichnis"
+
+== ./sendtodelivery.sh ==
+Muss mit der eigenen IP-Adresse als erstem Parameter
+aufgerufen werden, um dem Drucker beizubringen,
+dass er diesen Rechner als Delivery-Server verwenden
+soll. Verwendet die XML-Dateien im Verzeichnis
+delivery/
+
+== ./README ==
+Liest du grade... Held!
+
+== ./vsftpd.conf.example ==
+Ein Beispiel, wie eine vsftpd.conf aussehen könnte. 
+Wichtig:
+Anonymer Login muss aktiviert sein 
+und 
+der Server muss auf Port 3670 lauschen.
+
+== ./FtpRoot/* ==
+Ein Beispiel, wie ein FTP-Root aussehen muss, damit der
+Drucker damit zufrieden ist.

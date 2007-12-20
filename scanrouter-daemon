@@ -1,0 +1,63 @@
+#!/bin/bash
+
+function process {
+  if [ $3 == ".end" ]; then
+    VERZEICHNIS=$1
+    echo $VERZEICHNIS
+    pages=$(cat $VERZEICHNIS/docinfo.xml|xml fo|grep subdocCount|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+    contenttype=$(cat $VERZEICHNIS/docinfo.xml|xml fo|grep contentType|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+
+    TEMPFILE=$(mktemp "/tmp/scantool-XXXXXX")
+    if [ $contenttype == "image/tiff" ]; then
+      for i in $(seq 1 $pages); do
+        tiff2pdf -o $TEMPFILE-$i.pdf $VERZEICHNIS/page$(printf %04d $i).tif
+      done
+      pdftk $(for j in $(seq 1 $pages); do echo -n "$TEMPFILE-$j.pdf "; done) cat output $TEMPFILE.pdf
+    fi
+
+    if [ $contenttype == "image/jpeg" ]; then
+      # sollte funktionieren, sofern der Drucker den contenttype richtig setzt...
+      for i in $(seq 1 $pages); do
+        jpegtopnm $VERZEICHNIS/page$(printf %04d $i).jpg > $TEMPFILE-$i.pnm
+        pnmtops $TEMPFILE-$i.pnm|ps2pdf - $TEMPFILE-$i.pdf
+      done
+      pdftk $(for j in $(seq 1 $pages); do echo -n "$TEMPFILE-$j.pdf "; done) cat output $TEMPFILE.pdf
+    fi
+
+    receivercount=$(cat $VERZEICHNIS/docinfo.xml|xml fo|grep receiverCount|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+    filebasename=$(date +%Y%M%d%H%M%S);
+    if [ $receivercount -gt 1 ]; then
+      # Das muss ich mir noch anschauen... nicht sicher obs funktioniert
+      for receiver in $(cat $VERZEICHNIS/docinfo.xml|xml fo|grep receiverName|sed -e s/"[ ]*<[^>]*>[ ]*"//g|perl -M"MIME::Base64" -ne 'print decode_base64($_)'); do
+        outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"=" -f2)
+        if [ ! -e $outputdir/$filebasename.pdf ]; then
+          cp $TEMPFILE.pdf $outputdir/$filebasename.pdf
+        else
+          i=0
+          while [ -e $outputdir/$filebasename-$i.pdf ]; do
+            i=$(($i+1))
+          done
+          cp $TEMPFILE.pdf $outputdir/$filebasename-$i.pdf
+        fi
+      done
+    else
+      receiver=$(cat $VERZEICHNIS/docinfo.xml|xml fo|grep receiverName|sed -e s/"[ ]*<[^>]*>[ ]*"//g|perl -M"MIME::Base64" -ne 'print decode_base64($_)')
+      outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"=" -f2)
+      if [ ! -e $outputdir/$filebasename.pdf ]; then
+        cp $TEMPFILE.pdf $outputdir/$filebasename.pdf
+      else
+        i=0
+        while [ -e $outputdir/$filebasename-$i.pdf ]; do
+          i=$(($i+1))
+        done
+        cp $TEMPFILE.pdf $outputdir/$filebasename-$i.pdf 
+      fi
+    fi
+  fi
+  # Jetzt sollten wir wohl noch aufräumen..
+  rm $TEMPFILE*
+}
+
+scanrouterconfig=="scanrouter-daemon.conf"
+inotifywait -mr -e CREATE /home/ftp/d0000746f9bf7/|while read line; do process $line; done
+

@@ -1,0 +1,6 @@
+POST /DeliveryInput HTTP/1.0
+Content-Type: text/xml; charset=UTF-8
+Content-Length: 343
+SOAPAction: http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput#authenticate
+
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/"><s:Body><di:authenticate xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput"><password><encoding>CHARENC_WINDOWS_1252</encoding><string>nJscW1hamx0=</string></password></di:authenticate></s:Body></s:Envelope>
