@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function process {
-  if [ $3 == ".end" ]; then
+  if [ "$3" == ".end" ]; then
     VERZEICHNIS=$1
     echo $VERZEICHNIS
     pages=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep subdocCount|sed -e s/"[ ]*<[^>]*>[ ]*"//g)
@@ -35,16 +35,6 @@ function process {
       receiver=$(cat $VERZEICHNIS/docinfo.xml|xmlstarlet fo|grep receiverName|sed -e s/"[ ]*<[^>]*>[ ]*"//g|perl -M"MIME::Base64" -ne 'print decode_base64($_)')
       echo $receiver
       output $receiver $TEMPFILE
-#      outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"," -f2)
-#      if [ ! -e $outputdir/$filebasename.pdf ]; then
-#        cp $TEMPFILE.pdf $outputdir/$filebasename.pdf
-#      else
-#        i=0
-#        while [ -e $outputdir/$filebasename-$i.pdf ]; do
-#          i=$(($i+1))
-#        done
-#        cp $TEMPFILE.pdf $outputdir/$filebasename-$i.pdf 
-#      fi
     fi
   # Jetzt sollten wir wohl noch aufräumen..
   rm $TEMPFILE*
@@ -65,7 +55,33 @@ fi
 if [ x$outputtype == "xprotokoll" ]; then
 outputdir=$(grep "^$receiver" $scanrouterconfig|cut -d"," -f2)
 filebasename=$(date +%Y%m%d%H%M);
-pdftk $(for j in $(seq 1 $pages); do if [ $(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f 5) -gt 50000 ]; then echo "$2-$j.pdf "; fi; done) cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
+filelist=""
+emptypages=0
+for j in $(seq 1 $pages); do
+  echo -n "$j: "
+  echo -n "$(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f5) "
+  if [ $(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f5) -gt 30000 ]; then
+    echo beschriftet
+    filelist=$(echo $filelist $2-$j.pdf)
+    emptypages=0
+  else
+    if [ $emptypages -eq 1 ]; then
+      echo zweite leere
+      echo $filelist
+      pdftk $filelist cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
+      emptypages=0
+      filelist=""
+    else
+      emptypages=1
+      echo erste leere
+    fi
+  fi
+done
+
+if [ "x$filelist" != "x" ]; then
+ pdftk $filelist cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
+fi
+#pdftk $(for j in $(seq 1 $pages); do if [ $(ls -l $2-$j.pdf|sed -e s/"  "/" "/g|cut -d" " -f 5) -gt 20000 ]; then echo "$2-$j.pdf "; fi; done) cat output $outputdir/$(i=0;while [ -e $outputdir/$i.pdf ]; do i=$(($i+1)); done; echo $i).pdf
 fi
 }
 
