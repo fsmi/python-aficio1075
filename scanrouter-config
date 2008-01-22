@@ -22,7 +22,7 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
 import sys
-from printer import Printer, DeliveryInput
+from delivery_input import DeliveryInput
 from optparse import OptionParser
 from ConfigParser import SafeConfigParser
 
@@ -86,8 +86,7 @@ def main():
 	# Setup printer
 	#
 
-	p = Printer(host = printer_host, port = int(printer_port))
-	sdi = DeliveryInput(printer = p)
+	sdi = DeliveryInput(host = printer_host, port = int(printer_port))
 	sdi.authenticate(printer_auth_cookie)
 	sdi.set_delivery_service(ftp_scan_host)
 
