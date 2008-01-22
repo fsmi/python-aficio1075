@@ -21,6 +21,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
+# Based on bash scripts and XML snippets by
+# Thomas Witzenrath <thomas.witzenrath@fsmi.uni-karlsruhe.de>.
+
 # Depends on python-httplib2, python-xml
 
 import httplib2
