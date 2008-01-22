@@ -77,34 +77,39 @@ class DeliveryInput(object):
 		doc = reader.fromString(content)
 		return doc
 
+	def _perform_operation(self, func_name, oper):
+		body = """<?xml version="1.0" encoding="UTF-8" ?>
+		<s:Envelope
+		    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
+		    s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		  <s:Body>
+			%s
+		  </s:Body>
+		</s:Envelope>
+		""" % oper
+		return self._send_request(func_name, body)
+
 	def authenticate(self, auth_token):
 		# Apparently, there's more voodoo to it than the below.
 		#encoded_auth_token = \
 		#	b64encode(codecs.getencoder('windows-1252')(auth_token)[0])
 		encoded_auth_token = auth_token
 
-		body = """<?xml version="1.0" encoding="UTF-8" ?>
-		<s:Envelope
-		    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-		    s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-		  <s:Body>
-		    <di:authenticate
+		body = """
+			<di:authenticate
 		        xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
 		      <password>
 		        <encoding>CHARENC_WINDOWS_1252</encoding>
 		        <string>%s</string>
 		      </password>
 		    </di:authenticate>
-		  </s:Body>
-		</s:Envelope>
 		""" % auth_token
-		doc = self._send_request('authenticate', body)
+		doc = self._perform_operation('authenticate', body)
 
 		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
 			raise DeliveryInputException('Authentication failed')
 
 		self.__auth_cookie = _get_text_node('//*/ticket_out/string', doc)
-		return True
 
 	def set_delivery_service(self, host):
 		if self.__auth_cookie is None:
@@ -114,11 +119,7 @@ class DeliveryInput(object):
 		encoded_host = \
 			b64encode(codecs.getencoder('windows-1252')(host_ip_addr)[0])
 
-		body = """<?xml version="1.0" encoding="UTF-8" ?>
-		<s:Envelope
-		    xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-		    s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-		  <s:Body>
+		body = """
 		    <di:setDeliveryService
 		        xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
 		      <ticket>
@@ -138,9 +139,8 @@ class DeliveryInput(object):
 			    <faxDeliverySupported>false</faxDeliverySupported>
 		      </capability>
 		    </di:setDeliveryService>
-		  </s:Body>
-		</s:Envelope>""" % (self.__auth_cookie, encoded_host)
-		doc = self._send_request('setDeliveryService', body)
+		""" % (self.__auth_cookie, encoded_host)
+		doc = self._perform_operation('setDeliveryService', body)
 
 		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
 			raise DeliveryInputException('Failed to configure delivery service')
@@ -167,12 +167,18 @@ class UserMaint(object):
 		doc = reader.fromString(content)
 		return doc
 
-	def add_user(self, usercode, name):
-		encoded_name = b64encode(codecs.getencoder('windows-1252')(name)[0])
+	def _perform_operation(self, oper):
 		body = """<?xml version='1.0' encoding='us-ascii'?>
 			<operation>
 				<authorization>%s</authorization>
-				<addUserRequest>
+			%s
+			</operation>
+		""" % (self.__auth_token, oper)
+		return self._send_request(body)
+
+	def add_user(self, usercode, name):
+		encoded_name = b64encode(codecs.getencoder('windows-1252')(name)[0])
+		body = """<addUserRequest>
 					<target>
 						<userCode>%u</userCode>
 						<deviceId></deviceId>
@@ -197,9 +203,8 @@ class UserMaint(object):
 						</restrictInfo>
 					</user>
 				</addUserRequest>
-			</operation>
-		""" % (self.__auth_token, usercode, usercode, encoded_name)
-		doc = self._send_request(body)
+		""" % (usercode, usercode, encoded_name)
+		doc = self._perform_operation(body)
 
 		success = _get_text_node(
 				'operationResult/addUserResult/isSucceeded', doc) == 'true'
@@ -210,18 +215,14 @@ class UserMaint(object):
 					error_code)
 
 	def delete_user(self, usercode):
-		body = """<?xml version='1.0' encoding='us-ascii'?>
-			<operation>
-				<authorization>%s</authorization>
-				<deleteUserRequest>
+		body = """<deleteUserRequest>
 					<target>
 						<userCode>%u</userCode>
 						<deviceId></deviceId>
 					</target>
 				</deleteUserRequest>
-			</operation>
-		""" % (self.__auth_token, usercode)
-		doc = self._send_request(body)
+		""" % usercode
+		doc = self._perform_operation(body)
 
 		success = _get_text_node(
 				'operationResult/deleteUserResult/isSucceeded', doc) == 'true'
@@ -232,10 +233,7 @@ class UserMaint(object):
 					error_code)
 
 	def user_counter(self, usercode=''):
-		body = """<?xml version='1.0' encoding='us-ascii'?>
-			<operation>
-				<authorization>%s</authorization>
-				<getUserInfoRequest>
+		body = """<getUserInfoRequest>
 					<target>
 						<userCode>%s</userCode>
 						<deviceId></deviceId>
@@ -246,9 +244,8 @@ class UserMaint(object):
 						<statisticsInfo></statisticsInfo>
 					</user>
 				</getUserInfoRequest>
-			</operation>
-		""" % (self.__auth_token, usercode)
-		doc = self._send_request(body)
+		""" % usercode
+		doc = self._perform_operation(body)
 
 		success = _get_text_node(
 				'operationResult/getUserInfoResult/isSucceeded', doc) == 'true'
@@ -282,15 +279,3 @@ class UserMaint(object):
 			list.append((usercode, name, print_a3_count, print_a4_count,
 					copy_a3_count, copy_a4_count))
 		return list
-
-p = Printer(host = 'fsi-pr2', port = 80)
-#sdi = DeliveryInput(printer = p)
-#sdi.authenticate('nJscW1hamx0=')
-#sdi.set_delivery_service('fsi-pc1')
-
-um = UserMaint(printer = p, auth_token = 'mdgamxkbjEw=')
-
-print um.add_user(6000, u"Äpfel und Bänänën")
-print um.delete_user(6000)
-for user in um.user_counter():
-	print "%s %s %s %s %s %s" % user
