@@ -181,7 +181,6 @@ class UserMaint(object):
 		body = """<addUserRequest>
 					<target>
 						<userCode>%u</userCode>
-						<deviceId></deviceId>
 					</target>
 					<user version="1.1">
 						<userCode>%u</userCode>
@@ -189,16 +188,16 @@ class UserMaint(object):
 						<userCodeName enc="Windows-1252">%s</userCodeName>
 						<restrictInfo>
 							<copyInfo>
-								<monochrome><available></available></monochrome>
+								<monochrome><available/></monochrome>
 							</copyInfo>
 							<printerInfo>
-								<monochrome><available></available></monochrome>
+								<monochrome><available/></monochrome>
 							</printerInfo>
 							<scannerInfo>
-								<scan><available></available></scan>
+								<scan><available/></scan>
 							</scannerInfo>
 							<localStorageInfo>
-								<plot><available></available></plot>
+								<plot><available/></plot>
 							</localStorageInfo>
 						</restrictInfo>
 					</user>
@@ -218,7 +217,6 @@ class UserMaint(object):
 		body = """<deleteUserRequest>
 					<target>
 						<userCode>%u</userCode>
-						<deviceId></deviceId>
 					</target>
 				</deleteUserRequest>
 		""" % usercode
@@ -236,12 +234,11 @@ class UserMaint(object):
 		body = """<getUserInfoRequest>
 					<target>
 						<userCode>%s</userCode>
-						<deviceId></deviceId>
 					</target>
 					<user version="1.1">
-						<userCode></userCode>
-						<userCodeName></userCodeName>
-						<statisticsInfo></statisticsInfo>
+						<userCode/>
+						<userCodeName/>
+						<statisticsInfo/>
 					</user>
 				</getUserInfoRequest>
 		""" % usercode
