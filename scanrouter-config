@@ -1,0 +1,95 @@
+#!/usr/bin/python2.5
+# -*- coding: utf-8 -*-
+# vim:set ts=4 sw=4 noet:
+
+# scanrouter-config -- command-line tool to configure Ricoh Aficio 1075's scan
+#                      system.
+#
+# Copyright (C) 2007, 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
+
+import sys
+from printer import Printer, DeliveryInput
+from optparse import OptionParser
+from ConfigParser import SafeConfigParser
+
+CONFIG_FILE = "/etc/scanrouter.conf"
+
+
+def main():
+	# Parse command-line options.
+	parser = OptionParser()
+
+	parser.add_option("-H", "--host",
+					action = "store", dest = "printer_host",
+					help = "Hostname of printer")
+	parser.add_option("-p", "--port",
+					action = "store", dest = "printer_port",
+					help = "Port of printer's XML / SOAP interface")
+	parser.add_option("-a", "--auth-cookie",
+					action = "store", dest = "printer_auth_cookie",
+					help = "Printer's SOAP password")
+	parser.add_option("-s", "--scan-host",
+					action = "store", dest = "ftp_scan_host",
+					help = "Hostname of the host used as scan host")
+	parser.add_option("-c", "--config",
+					action = "store", dest = "config_file",
+					help = "Configuration file",
+					default = CONFIG_FILE)
+
+	(options, args) = parser.parse_args()
+	if len(args) != 0:
+		parser.error("incorrect number of arguments")
+
+	# Load configuration file.
+	cf = SafeConfigParser()
+	cf.read(options.config_file)
+
+
+	# Handle options
+	#
+
+	if options.printer_host is not None:
+		printer_host = options.printer_host
+	else:
+		printer_host = cf.get('printer', 'host')
+
+	if options.printer_port is not None:
+		printer_port = options.printer_port
+	else:
+		printer_port = cf.get('printer', 'port')
+
+	if options.printer_auth_cookie is not None:
+		printer_auth_cookie = options.printer_auth_cookie
+	else:
+		printer_auth_cookie = cf.get('printer', 'auth_cookie')
+
+	if options.ftp_scan_host is not None:
+		ftp_scan_host = options.ftp_scan_host
+	else:
+		ftp_scan_host = cf.get('ftp', 'scan_host')
+
+
+	# Setup printer
+	#
+
+	p = Printer(host = printer_host, port = int(printer_port))
+	sdi = DeliveryInput(printer = p)
+	sdi.authenticate(printer_auth_cookie)
+	sdi.set_delivery_service(ftp_scan_host)
+
+if __name__ == '__main__':
+	main()
