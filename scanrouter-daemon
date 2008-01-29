@@ -37,15 +37,21 @@ from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
 
+from optparse import OptionParser
+from ConfigParser import SafeConfigParser
+
+CONFIG_FILE = "/etc/scanrouter.conf"
+
 
 class Page(object):
-	def __init__(self, file_name = None, content_length = None, based_on = None):
+	def __init__(self, file_name = None, content_length = None,
+			based_on = None):
 		self.file_name = file_name
 		self.content_length = content_length
 		self.based_on = based_on
 
 	def __repr__(self):
-		return "<Page(file_name = '%s', content_length = %d, based_on = %s)>" % \
+		return "<Page(file_name = '%s', content_length = %d, based_on = %s)>" %\
 			(self.file_name, self.content_length, str(self.based_on))
 
 class DirectoryHandle(object):
@@ -142,6 +148,10 @@ class JoinAllProcessor(object):
 		join_pdfs(map(lambda page: page.file_name, self.scan_job.pdf_pages),
 			target_pdf)
 
+def new_join_all(scan_job, section_name):
+	return JoinAllProcessor(self,
+		target_dir = scan_job.config_file.get(section_name, 'target_dir'))
+
 class EmptySplitProcessor(object):
 	def __init__(self, scan_job, target_dir, empty_size, empty_pages_delimiter):
 		self.scan_job = scan_job
@@ -160,6 +170,7 @@ class EmptySplitProcessor(object):
 			if len(filled_pages) == 0:
 				return
 
+			print "   processing filled pages %s" % ', '.join(filled_pages)
 			target_pdf, strm = next_unique_file(
 				nr_format = '%03d',
 				base_path = os.path.join(
@@ -177,6 +188,8 @@ class EmptySplitProcessor(object):
 				empty_pages = 0
 				filled_pages.append(page.file_name)
 			else:
+				print "   skipping empty page %s (%d bytes, #%d)" % \
+						(page.file_name, page.content_length, empty_pages)
 				empty_pages += 1
 				if empty_pages == self.empty_pages_delimiter:
 					process_filled_pages()
@@ -184,14 +197,18 @@ class EmptySplitProcessor(object):
 					empty_pages = 0
 
 		process_filled_pages()
+		print "  finished processing all pages"
 
-def new_recv_processor(receiver_name, scan_job):
-	if receiver_name == 'Fachschaft':
-		return JoinAllProcessor(scan_job, '/tmp/scan_target')
-	elif receiver_name == 'Protokolle':
-		return EmptySplitProcessor(scan_job, '/tmp/proto_target', 30000, 2)
-	else:
-		raise Exception('No receiver converter for receiver "%s"' % receiver_name)
+def new_empty_split(scan_job, section_name):
+	return EmptySplitProcessor(scan_job,
+		target_dir = scan_job.config_file.get(section_name, 'target_dir'),
+		empty_size = scan_job.config_file.getint(section_name, 'empty_size'),
+		empty_pages_delimiter = \
+			scan_job.config_file.get(section_name, 'num_empty_pages'))
+
+receiver_processors = \
+	{'join_all': new_join_all,
+	 'empty_split': new_empty_split}
 
 
 def next_unique_file(nr_format, base_path, suffix):
@@ -215,10 +232,12 @@ def open_unique(file):
 
 
 class ScanJob(object):
-	def __init__(self, job_dir):
+	def __init__(self, job_dir, config_file):
 		# We don't want to implicitly delete the scan directory, as the data
 		# might be relevant in case something goes wrong during processing.
 		self.job_dir = DirectoryHandle(job_dir, auto_del = False)
+
+		self.config_file = config_file
 
 	def process(self):
 		'''
@@ -232,16 +251,7 @@ class ScanJob(object):
 		self._retrieve_receivers()
 		self._retrieve_pages()
 		self._convert_pages_to_pdf()
-
-		for receiver_name in self.receivers:
-			recv_processor = new_recv_processor(receiver_name, scan_job = self)
-			recv_processor()
-
-		print " contentType: %s" % self.content_type
-		print " subject: %s" % self.subject
-		print " receivers: %s" % str(self.receivers)
-		print " pages: %s" % str(self.pages)
-		print " pdf_pages: %s" % str(self.pdf_pages)
+		self._handle_receivers()
 
 		# All was successful, allow the scan job directory to be deleted.
 		self.job_dir.auto_del()
@@ -360,7 +370,31 @@ class ScanJob(object):
 			pdf_page.content_length = os.path.getsize(pdf_page.file_name)
 			self.pdf_pages.append(pdf_page)
 
+	def _handle_receivers(self):
+		for receiver_name in self.receivers:
+			recv_processor = self._get_recv_processor(receiver_name)
+			recv_processor()
+
+	def _get_recv_processor(self, receiver_name):
+		print "Handling receiver %s" % receiver_name
+		section_name = 'parse:%s' % receiver_name
+		if not self.config_file.has_section(section_name):
+			section_name = \
+				'parse:%s' % self.config_file.get('parse', 'default_receiver')
+
+		print " Using section %s" % section_name
+		mode = self.config_file.get(section_name, 'mode')
+		if mode in receiver_processors:
+			print " Using mode %s" % mode
+			return receiver_processors[mode](self, section_name)
+		else:
+			raise Exception('Unknown receiver converter mode "%s"' % mode)
+
+
 class ProcessScanEvent(ProcessEvent):
+	def __init__(self, config_file):
+		self.__config_file = config_file
+
 	def process_IN_CREATE(self, event):
 		# Not the end of a transaction.
 		if event.name != '.end':
@@ -372,18 +406,18 @@ class ProcessScanEvent(ProcessEvent):
 			return
 
 		try:
-			scan_job = ScanJob(event.path)
+			scan_job = ScanJob(event.path, config_file = self.__config_file)
 			scan_job.process()
 		except Exception, ex:
 			print "Caught exception %s" % str(ex)
 			import traceback
 			traceback.print_exc()
 
-def watch_directories(upload_directories):
+def watch_directories(pe, upload_directories):
 	print "Watching directories %s" % str(upload_directories)
 	wm = WatchManager()
 
-	notifier = Notifier(wm, ProcessScanEvent())
+	notifier = Notifier(wm, pe)
 
 	for upload_directory in upload_directories:
 		wdd = wm.add_watch(upload_directory, EventsCodes.IN_CREATE, rec = True,
@@ -404,7 +438,37 @@ def watch_directories(upload_directories):
 			break
 
 def main():
-	watch_directories([ '/tmp/scan-dumps', '/home/ftp/d0000746f9bf7' ])
+	# Parse command-line options.
+	parser = OptionParser()
+
+	parser.add_option("-c", "--config",
+					action = "store", dest = "config_file",
+					help = "Configuration file",
+					default = CONFIG_FILE)
+
+	(options, args) = parser.parse_args()
+
+	# Load configuration file.
+	cf = SafeConfigParser()
+	cf.read(options.config_file)
+
+	if len(args) != 0:
+		#
+		# Parse existing scan job directories
+		#
+
+		for scan_dir in args:
+			scan_job = ScanJob(scan_dir, config_file = cf)
+			scan_job.process()
+	else:
+		#
+		# Regular daemon mode, start waiting for scan jobs.
+		#
+
+		ftp_base_dirs = cf.get('ftp', 'base_dir').split(',')
+		pe = ProcessScanEvent(config_file = cf)
+
+		watch_directories(pe, ftp_base_dirs)
 
 if __name__ == '__main__':
 	main()
