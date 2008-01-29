@@ -1,10 +1,9 @@
-* Rewrite everything in python
 * Use fk's mac_address.py module to determine the printer's MAC address.
-* delete processed scan jobs
 * run as regular system daemon, with proper logging to syslog, etc.
 * package as debian package
-* make conversion modular (currently there's 'plain' (convert to single PDF)
-  and 'protokoll' (convert to a bunch of PDFs and use a certain heuristic to
-  determine where to split))
 * tray-applet which get's notified of finished scan jobs? (Can we detect which
   user created the job?)
+* Determine format of the binary files in <ftp-root>/Address/ and
+  <ftp-root>/Version/, as everything else appears to be optional (and the
+  binary files are regularly downloaded by the printer)
+* Provide readme in English
