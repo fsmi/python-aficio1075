@@ -27,10 +27,16 @@ from pyinotify import WatchManager, Notifier, EventsCodes, ProcessEvent
 
 from time import localtime, strftime
 import os
+import signal
 import stat
 from shutil import rmtree
 from tempfile import mkdtemp
 from subprocess import PIPE, Popen
+import logging
+import logging.config
+
+import socket
+from mac_address import get_mac_address
 
 import codecs
 from base64 import b64encode, b64decode
@@ -84,7 +90,8 @@ class DirectoryHandle(object):
 		return self.__dir_path
 
 def tiff2pdf(source_file, target_file):
-	print "tiff2pdf: converting %s to %s" % (source_file, target_file)
+	l = logging.getLogger('scanrouter.pdfconvert')
+	l.debug("tiff2pdf: converting %s to %s", source_file, target_file)
 
 	p = Popen(['tiff2pdf', '-o', target_file, source_file])
 	p.wait()
@@ -93,7 +100,8 @@ def tiff2pdf(source_file, target_file):
 			(source_file, target_file, p.returncode))
 
 def jpeg2pdf(source_file, target_file):
-	print "jpeg2pdf: converting %s to %s" % (source_file, target_file)
+	l = logging.getLogger('scanrouter.pdfconvert')
+	l.debug("jpeg2pdf: converting %s to %s", source_file, target_file)
 
 	topnm = Popen(["jpegtopnm", source_file], stdout = PIPE)
 	tops = Popen(["pnmtops"], stdin = topnm.stdout, stdout = PIPE)
@@ -137,6 +145,7 @@ class JoinAllProcessor(object):
 	def __init__(self, scan_job, target_dir):
 		self.scan_job = scan_job
 		self.target_dir = target_dir
+		self.l = logging.getLogger('scanrouter.rcv_proc.join_all')
 
 	def __call__(self):
 		target_pdf, strm = next_unique_file(
@@ -149,7 +158,7 @@ class JoinAllProcessor(object):
 			target_pdf)
 
 def new_join_all(scan_job, section_name):
-	return JoinAllProcessor(self,
+	return JoinAllProcessor(scan_job,
 		target_dir = scan_job.config_file.get(section_name, 'target_dir'))
 
 class EmptySplitProcessor(object):
@@ -158,6 +167,7 @@ class EmptySplitProcessor(object):
 		self.target_dir = target_dir
 		self.empty_size = empty_size
 		self.empty_pages_delimiter = empty_pages_delimiter
+		self.l = logging.getLogger('scanrouter.rcv_proc.empty_split')
 
 	def __call__(self):
 		empty_pages = 0
@@ -170,7 +180,7 @@ class EmptySplitProcessor(object):
 			if len(filled_pages) == 0:
 				return
 
-			print "   processing filled pages %s" % ', '.join(filled_pages)
+			self.l.debug("processing filled pages %s", ', '.join(filled_pages))
 			target_pdf, strm = next_unique_file(
 				nr_format = '%03d',
 				base_path = os.path.join(
@@ -188,8 +198,8 @@ class EmptySplitProcessor(object):
 				empty_pages = 0
 				filled_pages.append(page.file_name)
 			else:
-				print "   skipping empty page %s (%d bytes, #%d)" % \
-						(page.file_name, page.content_length, empty_pages)
+				self.l.debug("skipping empty page %s (%d bytes, #%d)",
+						page.file_name, page.content_length, empty_pages)
 				empty_pages += 1
 				if empty_pages == self.empty_pages_delimiter:
 					process_filled_pages()
@@ -197,7 +207,7 @@ class EmptySplitProcessor(object):
 					empty_pages = 0
 
 		process_filled_pages()
-		print "  finished processing all pages"
+		self.l.debug("finished processing all pages")
 
 def new_empty_split(scan_job, section_name):
 	return EmptySplitProcessor(scan_job,
@@ -238,12 +248,13 @@ class ScanJob(object):
 		self.job_dir = DirectoryHandle(job_dir, auto_del = False)
 
 		self.config_file = config_file
+		self.l = logging.getLogger('scanrouter.rcv_proc.empty_split')
 
 	def process(self):
 		'''
 		Start processing of the associated scan job.
 		'''
-		print "New scan job in directory %s" % self.job_dir
+		self.l.info("New scan job in directory %s", self.job_dir)
 		self.tmp_dir = DirectoryHandle(mkdtemp())
 
 		self._load_docinfo()
@@ -376,16 +387,18 @@ class ScanJob(object):
 			recv_processor()
 
 	def _get_recv_processor(self, receiver_name):
-		print "Handling receiver %s" % receiver_name
+		self.l.debug("Handling receiver %s", receiver_name)
 		section_name = 'parse:%s' % receiver_name
 		if not self.config_file.has_section(section_name):
-			section_name = \
-				'parse:%s' % self.config_file.get('parse', 'default_receiver')
+			default_receiver = self.config_file.get('parse', 'default_receiver')
+			section_name = 'parse:%s' % default_receiver
+			self.l.info("Receiver '%s' not found, using default " \
+				"receiver '%s'", receiver_name, default_receiver)
 
-		print " Using section %s" % section_name
+		self.l.debug("Using section %s", section_name)
 		mode = self.config_file.get(section_name, 'mode')
 		if mode in receiver_processors:
-			print " Using mode %s" % mode
+			self.l.debug("Using mode %s", mode)
 			return receiver_processors[mode](self, section_name)
 		else:
 			raise Exception('Unknown receiver converter mode "%s"' % mode)
@@ -394,6 +407,7 @@ class ScanJob(object):
 class ProcessScanEvent(ProcessEvent):
 	def __init__(self, config_file):
 		self.__config_file = config_file
+		self.l = logging.getLogger('scanrouter.process_event')
 
 	def process_IN_CREATE(self, event):
 		# Not the end of a transaction.
@@ -408,13 +422,14 @@ class ProcessScanEvent(ProcessEvent):
 		try:
 			scan_job = ScanJob(event.path, config_file = self.__config_file)
 			scan_job.process()
-		except Exception, ex:
-			print "Caught exception %s" % str(ex)
-			import traceback
-			traceback.print_exc()
+		except KeyboardInterrupt:
+			raise
+		except:
+			self.l.exception("Caught exception while processing scan job")
 
 def watch_directories(pe, upload_directories):
-	print "Watching directories %s" % str(upload_directories)
+	l = logging.getLogger('scanrouter.watch_loop')
+	l.info("Watching directories %s", upload_directories)
 	wm = WatchManager()
 
 	notifier = Notifier(wm, pe)
@@ -432,10 +447,21 @@ def watch_directories(pe, upload_directories):
 				# read notified events and enqeue them
 				notifier.read_events()
 			# you can do some tasks here...
-		except KeyboardInterrupt:
+		except KeyboardInterrupt, ex:
+			l.info("Received signal %s, exiting.", str(ex))
 			# destroy the inotify's instance on this interrupt (stop monitoring)
 			notifier.stop()
 			break
+
+def host_to_macdir(hostname):
+	return 'd%s' % \
+		''.join(
+			get_mac_address(socket.gethostbyname(hostname)) \
+				.lower() \
+				.split(':'))
+
+def sig_handler(signum, frame):
+	raise KeyboardInterrupt, signum
 
 def main():
 	# Parse command-line options.
@@ -445,12 +471,24 @@ def main():
 					action = "store", dest = "config_file",
 					help = "Configuration file",
 					default = CONFIG_FILE)
+	parser.add_option("-d", "--debug",
+					action = "store_true", dest = "debug", default = False,
+					help = "Enable additional debugging messages")
 
 	(options, args) = parser.parse_args()
 
 	# Load configuration file.
 	cf = SafeConfigParser()
 	cf.read(options.config_file)
+
+	# Configure logging.
+	logging.config.fileConfig(options.config_file)
+	if options.debug:
+		logging.getLogger().setLevel(logging.DEBUG)
+
+	# Set signal handlers.
+	signal.signal(signal.SIGINT, sig_handler)
+	signal.signal(signal.SIGTERM, sig_handler)
 
 	if len(args) != 0:
 		#
@@ -465,10 +503,13 @@ def main():
 		# Regular daemon mode, start waiting for scan jobs.
 		#
 
-		ftp_base_dirs = cf.get('ftp', 'base_dir').split(',')
+		ftp_base_dir = os.path.join(
+				cf.get('ftp', 'base_dir'),
+				host_to_macdir(cf.get('printer', 'host')))
+
 		pe = ProcessScanEvent(config_file = cf)
 
-		watch_directories(pe, ftp_base_dirs)
+		watch_directories(pe, [ftp_base_dir])
 
 if __name__ == '__main__':
 	main()
