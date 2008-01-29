@@ -1,179 +1,410 @@
-#!/bin/bash
+#!/usr/bin/python2.5
+# -*- coding: utf-8 -*-
+# vim:set ts=4 sw=4 noet:
 
-function log {
-  local level=$1
-  local msg=$2
+# scanrouter-daemon
+#
+# Copyright (C) 2007 Thomas Witzenrath <thomas.witzenrath@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-#  echo "$(date "+%H:%M:%S.%N") scanrouter-daemon[$$] $level: $msg"
-  echo "scanrouter[$$] $level: $msg"
-}
-function logdebug {
-  log "debug" "$@"
-}
-function logerror {
-  log "error" "$@"
-}
-function lognotice {
-  log "notice" "$@"
-}
+# Depends on python-xml, python-pyinotify
 
-function process {
-  local watched_filename=$1
-  local event_list=$2
-  local event_filename=$3
+from pyinotify import WatchManager, Notifier, EventsCodes, ProcessEvent
 
-  if [ "$event_filename" != ".end" ]; then
-    # Not the end of a transaction.
-    return
-  fi
-  if [ ! -d $watched_filename ]; then
-    # Not a directory.
-    return
-  fi
+from time import localtime, strftime
+import os
+import stat
+from shutil import rmtree
+from tempfile import mkdtemp
+from subprocess import PIPE, Popen
 
-  scan_dir=$watched_filename
-  logdebug "Processing directory $scan_dir"
+import codecs
+from base64 import b64encode, b64decode
+from xml.dom.ext.reader import Sax2
+from xml import xpath
 
-  local pages=$( \
-      cat $scan_dir/docinfo.xml | \
-      xmlstarlet fo | \
-      grep subdocCount | \
-      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
 
-  local contenttype=$( \
-      cat $scan_dir/docinfo.xml | \
-      xmlstarlet fo | \
-      grep contentType | \
-      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+class Page(object):
+	def __init__(self, file_name = None, content_length = None, based_on = None):
+		self.file_name = file_name
+		self.content_length = content_length
+		self.based_on = based_on
 
-  local temp_dir=$(mktemp -t -d "scantool-XXXXXX")
+	def __repr__(self):
+		return "<Page(file_name = '%s', content_length = %d, based_on = %s)>" % \
+			(self.file_name, self.content_length, str(self.based_on))
 
-  logdebug "Content-type is $contenttype" 
-  case "$contenttype" in
-    (image/tiff)
-      for i in $(seq 1 $pages); do
-        tiff2pdf -o $temp_dir/$i.pdf $scan_dir/page$(printf %04d $i).tif
-      done
-      ;;
-    (image/jpeg)
-      for i in $(seq 1 $pages); do
-        jpegtopnm $scan_dir/page$(printf %04d $i).jpg > $temp_dir/$i.pnm
-        pnmtops $temp_dir/$i.pnm | \
-            ps2pdf - $temp_dir/$i.pdf
-      done
-      ;;
-    (*)
-      logerror "Content-type $contenttype is unknown, aborting"
-      # Don't forget to clean up, even if we couldn't actually do anything
-      # useful with the data.
-      rm -r $temp_dir
-      rm -r $scan_dir
-      return
-  esac
+class DirectoryHandle(object):
+	'''
+	Automatically removes the associated directory as soon as the object goes
+	out of scope.
+	'''
+	def __init__(self, dir_path, auto_del = True):
+		self.__dir_path = dir_path
+		self.__auto_del = auto_del
 
-  receivercount=$( \
-      cat $scan_dir/docinfo.xml | \
-      xmlstarlet fo | \
-      grep receiverCount | \
-      sed -e s/"[ ]*<[^>]*>[ ]*"//g)
+	def __del__(self):
+		if self.__auto_del:
+			self.del_dir()
 
-  if [ $receivercount -gt 1 ]; then
-    for encoded_receiver in $(cat $scan_dir/docinfo.xml | \
-                              xmlstarlet fo | \
-                              grep receiverName | \
-                              sed -e s/" "/"_"/g); do
-      receiver=$( \
-          echo $encoded_receiver | \
-          sed -e s/"[_]*<[^>]*>"//g | \
-          perl -M"MIME::Base64" -ne 'print decode_base64($_)')
-      output $receiver $temp_dir $pages
-    done
-  else
-    receiver=$( \
-        cat $scan_dir/docinfo.xml | \
-        xmlstarlet fo | \
-        grep receiverName | \
-        sed -e s/"[ ]*<[^>]*>[ ]*"//g | \
-        perl -M"MIME::Base64" -ne 'print decode_base64($_)')
+	def del_dir(self):
+		'''Explicitly delete the directory.'''
+		rmtree(self.__dir_path, ignore_errors = True)
 
-    output $receiver $temp_dir $pages
-  fi
+	def auto_del(self, auto_del = True):
+		'''Activate or deactivate auto deletion.'''
+		self.__auto_del = auto_del
 
-  # Don't forget to clean up.
-  rm -r $temp_dir
-  rm -r $scan_dir
-}
+	def __call__(self):
+		return self.__dir_path
 
-function output {
-  local receiver=$1
-  local source_dir=$2
-  local pages=$3
+	def __repr__(self):
+		return "DirectoryHandle('%s')" % self.__dir_path
+	def __str__(self):
+		return self.__dir_path
 
-  logdebug "Outputting $pages page(s) for receiver $receiver."
-  local config_line=$(grep "^$receiver," $output_types_map_file)
-  if [ "$config_line" == "" ]; then
-    logerror "Receiver '$receiver' not configured, aborting."
-    return
-  fi
+def tiff2pdf(source_file, target_file):
+	print "tiff2pdf: converting %s to %s" % (source_file, target_file)
 
-  local output_type=$(echo $config_line | cut -d"," -f3)
-  local output_dir=$(echo $config_line | cut -d"," -f2)
+	p = Popen(['tiff2pdf', '-o', target_file, source_file])
+	p.wait()
+	if p.returncode != 0:
+		raise Exception('tiff2pdf("%s" to "%s") failed with status %d' % \
+			(source_file, target_file, p.returncode))
 
-  if [ "$output_type" == "" ]; then
-    # Default to plain.
-    output_type="plain"
-  fi
+def jpeg2pdf(source_file, target_file):
+	print "jpeg2pdf: converting %s to %s" % (source_file, target_file)
 
-  logdebug "Outputting $output_type to $output_dir."
-  case "$output_type" in
-    (protokoll)
-      # Ausgabeoption "protokoll", packe alle nicht-leeren Seiten in ein PDF und
-      # lege es mit fortlaufender Nummer in ein Verzeichnis
-      local nonempty_documents=$(\
-          for j in $(seq 1 $pages); do \
-            if [ $(ls -l $source_dir/$j.pdf | \
-                   sed -e s/"  "/" "/g | \
-                   cut -d" " -f 5) -gt 20000 ]; then \
-              echo "$source_dir/$j.pdf "; \
-            fi; \
-          done)
-      local next_unique_name=$output_dir/$( \
-          i=0; \
-          while [ -e $output_dir/$i.pdf ]; do \
-            i=$(($i+1)); \
-          done; \
-          echo $i).pdf
-      pdftk $nonempty_documents cat output $next_unique_name
-      ;;
-    (plain)
-      # Ausgabeoption "plain" (bzw. falls keine Option angegeben), packe einfach
-      # alles, was du bekommen hast in ein PDF und lege es in ein Verzeichnis
-      local file_base_name=$(date +%Y%m%d%H%M);
-      local documents=$(\
-          for j in $(seq 1 $pages); do \
-            echo -n "$source_dir/$j.pdf "; \
-          done)
-      local next_unique_name=$output_dir/$file_base_name-$( \
-          i=0; \
-          while [ -e $output_dir/$file_base_name-$i.pdf ]; do \
-            i=$(($i+1)); \
-          done; \
-          echo $i).pdf
+	topnm = Popen(["jpegtopnm", source_file], stdout = PIPE)
+	tops = Popen(["pnmtops"], stdin = topnm.stdout, stdout = PIPE)
+	topdf = Popen(["ps2pdf", "-", target_file], stdin = tops.stdout)
 
-      pdftk $documents cat output $next_unique_name
-      ;;
-  esac
-}
+	topnm.wait()
+	tops.wait()
+	topdf.wait()
 
-#config_file="/etc/scanrouter-daemon.conf"
-#if [ ! -r $config_file ]; then
-#  logerror "Could not read configuration file $config_file, exiting."
-#  exit 1
-#fi
-#. $config_file
+	if topnm.returncode != 0 or tops.returncode != 0 or topdf.returncode != 0:
+		raise Exception('jpeg2pdf("%s" to "%s") failed with status (%s,%s,%s)' % \
+			(source_file, target_file,
+			topnm.returncode, tops.returncode, topdf.returncode))
 
-output_types_map_file="scanrouter-daemon.conf"
 
-lognotice "Daemon started."
-inotifywait -mr -e CREATE /home/ftp/d0000746f9bf7/ | \
-    while read line; do process $line; done
+def new_pdf_converter(content_type):
+	'''
+	This factory-like function returns a callable to convert a file with the
+	passed content type to a PDF file.
+	'''
+	if content_type == 'image/tiff':
+		return tiff2pdf
+	elif content_type == 'image/jpeg':
+		return jpeg2pdf
+	else:
+		raise Exception('No PDF converter for content type "%s"' % content_type)
+
+
+def join_pdfs(pdf_files, target_pdf):
+	cmd_line = ['pdftk']
+	cmd_line.extend(pdf_files)
+	cmd_line.extend(['cat', 'output', target_pdf])
+
+	p = Popen(cmd_line)
+	p.wait()
+	if p.returncode != 0:
+		raise Exception('join_pdfs failed, pdftk returned status %d' % \
+			p.returncode)
+
+class JoinAllProcessor(object):
+	def __init__(self, scan_job, target_dir):
+		self.scan_job = scan_job
+		self.target_dir = target_dir
+
+	def __call__(self):
+		target_pdf, strm = next_unique_file(
+			nr_format = '%02d',
+			base_path = os.path.join(
+					self.target_dir, strftime("%Y%m%d-", localtime())),
+			suffix = '.pdf')
+
+		join_pdfs(map(lambda page: page.file_name, self.scan_job.pdf_pages),
+			target_pdf)
+
+class EmptySplitProcessor(object):
+	def __init__(self, scan_job, target_dir, empty_size, empty_pages_delimiter):
+		self.scan_job = scan_job
+		self.target_dir = target_dir
+		self.empty_size = empty_size
+		self.empty_pages_delimiter = empty_pages_delimiter
+
+	def __call__(self):
+		empty_pages = 0
+		filled_pages = []
+
+		def process_filled_pages():
+			'''
+			Pack all filled pages into one PDF file.
+			'''
+			if len(filled_pages) == 0:
+				return
+
+			target_pdf, strm = next_unique_file(
+				nr_format = '%03d',
+				base_path = os.path.join(
+						self.target_dir, strftime("%Y%m%d-", localtime())),
+				suffix = '.pdf')
+
+			join_pdfs(filled_pages, target_pdf)
+
+
+		# Go through all pages, accumulate all filled pages until
+		# self.empty_pages_delimiter number of empty pages occur, at which point
+		# the accumulated files are dumped into a single PDF.
+		for page in self.scan_job.pdf_pages:
+			if page.content_length > self.empty_size:
+				empty_pages = 0
+				filled_pages.append(page.file_name)
+			else:
+				empty_pages += 1
+				if empty_pages == self.empty_pages_delimiter:
+					process_filled_pages()
+					filled_pages = []
+					empty_pages = 0
+
+		process_filled_pages()
+
+def new_recv_processor(receiver_name, scan_job):
+	if receiver_name == 'Fachschaft':
+		return JoinAllProcessor(scan_job, '/tmp/scan_target')
+	elif receiver_name == 'Protokolle':
+		return EmptySplitProcessor(scan_job, '/tmp/proto_target', 30000, 2)
+	else:
+		raise Exception('No receiver converter for receiver "%s"' % receiver_name)
+
+
+def next_unique_file(nr_format, base_path, suffix):
+	nr = 0
+	while True:
+		unique_file_name = base_path + nr_format % nr + suffix
+		try:
+			return (unique_file_name, open_unique(unique_file_name))
+		except:
+			nr += 1
+
+def open_unique(file):
+	'''
+	Creates a new file for writing.
+
+	Only succeeds in opening the specified file, if the file wasn't created
+	before.
+	'''
+	fd = os.open(file, os.O_WRONLY | os.O_CREAT | os.O_EXCL)
+	return os.fdopen(fd, 'wb')
+
+
+class ScanJob(object):
+	def __init__(self, job_dir):
+		# We don't want to implicitly delete the scan directory, as the data
+		# might be relevant in case something goes wrong during processing.
+		self.job_dir = DirectoryHandle(job_dir, auto_del = False)
+
+	def process(self):
+		'''
+		Start processing of the associated scan job.
+		'''
+		print "New scan job in directory %s" % self.job_dir
+		self.tmp_dir = DirectoryHandle(mkdtemp())
+
+		self._load_docinfo()
+		self._retrieve_basic_infos()
+		self._retrieve_receivers()
+		self._retrieve_pages()
+		self._convert_pages_to_pdf()
+
+		for receiver_name in self.receivers:
+			recv_processor = new_recv_processor(receiver_name, scan_job = self)
+			recv_processor()
+
+		print " contentType: %s" % self.content_type
+		print " subject: %s" % self.subject
+		print " receivers: %s" % str(self.receivers)
+		print " pages: %s" % str(self.pages)
+		print " pdf_pages: %s" % str(self.pdf_pages)
+
+		# All was successful, allow the scan job directory to be deleted.
+		self.job_dir.auto_del()
+
+
+	def _decode(self, encoding, text):
+		if encoding == 'none':
+			return text
+		return codecs.getdecoder(encoding)(b64decode(text))[0]
+
+
+	def _load_docinfo(self):
+		'''
+		Process the docinfo.xml file.
+		'''
+		reader = Sax2.Reader()
+		self.doc = reader.fromStream(
+			open(os.path.join(self.job_dir(), 'docinfo.xml')))
+		self.doc_ctx = self._create_ctx(self.doc)
+
+	def _create_ctx(self, node):
+		'''
+		Create an xpath context with all relevant namespaces used within the
+		docinfo.xml file.
+		'''
+		ctx = xpath.Context.Context(node)
+		ctx.setNamespaces(
+			{'sc': 'http://www.ricoh.co.jp/xmlns/scan',
+			 'nf': 'http://www.ricoh.co.jp/xmlns/netfile'})
+		return ctx
+
+	def _docinfo_eval(self, eval_string, node = None, ctx = None):
+		'''
+		Evaluate an XPath expression.
+		'''
+		if node is None:
+			node = self.doc
+		if ctx is None:
+			ctx = self.doc_ctx
+		return xpath.Evaluate(eval_string, node, ctx)
+
+	def _docinfo_elem(self, path, node = None, ctx = None):
+		'''
+		Evaluate an XPath expression as string.
+		'''
+		return self._docinfo_eval('string(%s)' % path, node = node, ctx = ctx)
+
+	def _docinfo_attr(self, path, attribute, node = None, ctx = None):
+		'''
+		Evaluate an attribute found by an XPath expression and returns the
+		string value.
+		'''
+		return self._docinfo_elem('%s/attribute::%s' % (path, attribute),
+				node = node, ctx = ctx)
+
+	def _docinfo_encoded_elem(self, path, node = None, ctx = None):
+		'''
+		Returns the string value of an element found by an XPath expression and
+		decodes the element based on the element's enc attribute.
+		'''
+		return self._decode(
+			self._docinfo_attr(path, 'enc', node, ctx),
+			self._docinfo_elem(path, node, ctx))
+
+
+	def _retrieve_basic_infos(self):
+		'''
+		Retrieves basic information.
+		'''
+		self.content_type = \
+			self._docinfo_elem('/nf:nfdoc/propList/nf:contentType')
+		self.subject = \
+			self._docinfo_encoded_elem('/nf:nfdoc/propList/sc:subject')
+
+	def _retrieve_receivers(self):
+		'''
+		Retrieves the list of receivers.
+		'''
+		self.receivers = []
+		for receiverInfo in self._docinfo_eval(
+				'/nf:nfdoc/propList/sc:receiverInfo'):
+			ri_ctx = self._create_ctx(receiverInfo)
+			self.receivers.append(
+				self._docinfo_encoded_elem('sc:receiverName',
+					receiverInfo, ri_ctx))
+
+	def _retrieve_pages(self):
+		'''
+		Retrieves list of scanned pages.
+		'''
+		self.pages = []
+		for pageNode in self._docinfo_eval(
+				'/nf:nfdoc/subdocList/nf:page'):
+			pn_ctx = self._create_ctx(pageNode)
+			page = Page()
+			page.file_name = os.path.join(self.job_dir(),
+				self._docinfo_elem('propList/nf:fileName', pageNode, pn_ctx))
+			page.content_length = \
+				int(self._docinfo_elem('propList/nf:contentLength', pageNode,
+						pn_ctx))
+			self.pages.append(page)
+
+	def _convert_pages_to_pdf(self):
+		'''
+		Convert scanned pages to PDF.
+		'''
+		pdf_converter = new_pdf_converter(self.content_type)
+		self.pdf_pages = []
+		for page in self.pages:
+			pdf_page = Page(based_on = page)
+			pdf_page.file_name = os.path.join(self.tmp_dir(),
+				os.path.splitext(os.path.basename(page.file_name))[0] + '.pdf')
+
+			pdf_converter(page.file_name, pdf_page.file_name)
+
+			pdf_page.content_length = os.path.getsize(pdf_page.file_name)
+			self.pdf_pages.append(pdf_page)
+
+class ProcessScanEvent(ProcessEvent):
+	def process_IN_CREATE(self, event):
+		# Not the end of a transaction.
+		if event.name != '.end':
+			return
+
+		# Not a directory
+		mode = os.stat(event.path)[stat.ST_MODE]
+		if not stat.S_ISDIR(mode):
+			return
+
+		try:
+			scan_job = ScanJob(event.path)
+			scan_job.process()
+		except Exception, ex:
+			print "Caught exception %s" % str(ex)
+			import traceback
+			traceback.print_exc()
+
+def watch_directories(upload_directories):
+	print "Watching directories %s" % str(upload_directories)
+	wm = WatchManager()
+
+	notifier = Notifier(wm, ProcessScanEvent())
+
+	for upload_directory in upload_directories:
+		wdd = wm.add_watch(upload_directory, EventsCodes.IN_CREATE, rec = True,
+				auto_add = True)
+
+	# Loop forever
+	while True:
+		try:
+			# process the queue of events as explained above
+			notifier.process_events()
+			if notifier.check_events():
+				# read notified events and enqeue them
+				notifier.read_events()
+			# you can do some tasks here...
+		except KeyboardInterrupt:
+			# destroy the inotify's instance on this interrupt (stop monitoring)
+			notifier.stop()
+			break
+
+def main():
+	watch_directories([ '/tmp/scan-dumps', '/home/ftp/d0000746f9bf7' ])
+
+if __name__ == '__main__':
+	main()
