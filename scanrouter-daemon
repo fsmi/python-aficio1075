@@ -248,7 +248,7 @@ class ScanJob(object):
 		self.job_dir = DirectoryHandle(job_dir, auto_del = False)
 
 		self.config_file = config_file
-		self.l = logging.getLogger('scanrouter.rcv_proc.empty_split')
+		self.l = logging.getLogger('scanrouter.scan_job')
 
 	def process(self):
 		'''
