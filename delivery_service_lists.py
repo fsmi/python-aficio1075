@@ -108,7 +108,7 @@ class Group(object):
 		data.unpack("32x")
 
 		self.__columns = []
-		for i in range(self.max_columns):
+		for i in range(1, self.max_columns):
 			if self.short_columns:
 				nr, name = data.unpack(">L 4s 16x")
 			else:
