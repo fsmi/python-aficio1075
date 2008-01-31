@@ -22,9 +22,13 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
 import sys
+import socket
+import os
 from delivery_input import DeliveryInput
+from delivery_service_lists import TargetList
 from optparse import OptionParser
 from ConfigParser import SafeConfigParser
+from mac_address import get_mac_address, compact_mac_address
 
 CONFIG_FILE = "/etc/scanrouter.conf"
 
@@ -33,18 +37,6 @@ def main():
 	# Parse command-line options.
 	parser = OptionParser()
 
-	parser.add_option("-H", "--host",
-					action = "store", dest = "printer_host",
-					help = "Hostname of printer")
-	parser.add_option("-p", "--port",
-					action = "store", dest = "printer_port",
-					help = "Port of printer's XML / SOAP interface")
-	parser.add_option("-a", "--auth-cookie",
-					action = "store", dest = "printer_auth_cookie",
-					help = "Printer's SOAP password")
-	parser.add_option("-s", "--scan-host",
-					action = "store", dest = "ftp_scan_host",
-					help = "Hostname of the host used as scan host")
 	parser.add_option("-c", "--config",
 					action = "store", dest = "config_file",
 					help = "Configuration file",
@@ -58,37 +50,39 @@ def main():
 	cf = SafeConfigParser()
 	cf.read(options.config_file)
 
+	ftp_base_dir = cf.get('ftp', 'base_dir')
+	printer_host = cf.get('printer', 'host')
 
-	# Handle options
+	# Prepare FTP root
 	#
 
-	if options.printer_host is not None:
-		printer_host = options.printer_host
-	else:
-		printer_host = cf.get('printer', 'host')
+	if not os.path.exists(ftp_base_dir):
+		parser.error("FTP base directory does not exist, please create first")
 
-	if options.printer_port is not None:
-		printer_port = options.printer_port
-	else:
-		printer_port = cf.get('printer', 'port')
-
-	if options.printer_auth_cookie is not None:
-		printer_auth_cookie = options.printer_auth_cookie
-	else:
-		printer_auth_cookie = cf.get('printer', 'auth_cookie')
-
-	if options.ftp_scan_host is not None:
-		ftp_scan_host = options.ftp_scan_host
-	else:
-		ftp_scan_host = cf.get('ftp', 'scan_host')
+	tl = TargetList(compact_mac_address(get_mac_address(
+				socket.gethostbyname(printer_host))))
+	try:
+		# Attempt to read the revisions and versions from what we already have.
+		tl.load_path(ftp_base_dir)
+	except:
+		print "No existing configuration found or problems during load"
+	# Load the actual configuration.
+	tl.load_config(cf)
+	# Dump the accumulated stuff back to the FTP root.
+	tl.dump_path(ftp_base_dir)
 
 
 	# Setup printer
 	#
 
-	sdi = DeliveryInput(host = printer_host, port = int(printer_port))
-	sdi.authenticate(printer_auth_cookie)
-	sdi.set_delivery_service(ftp_scan_host)
+	sdi = DeliveryInput(host = cf.get('printer', 'host'),
+			port = cf.getint('printer', 'port'))
+	sdi.authenticate(cf.get('printer', 'auth_cookie'))
+
+	scan_host = cf.get('ftp', 'scan_host')
+	sdi.set_delivery_service(scan_host)
+	# Force a sync.
+	sdi.synchronize(scan_host, tl.version.generation_nr)
 
 if __name__ == '__main__':
 	main()
