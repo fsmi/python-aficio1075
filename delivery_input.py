@@ -100,25 +100,44 @@ class DeliveryInput(object):
 
 		self.__auth_cookie = _get_text_node('//*/ticket_out/string', doc)
 
-	def set_delivery_service(self, host):
+	def _ticket_xml(self):
 		if self.__auth_cookie is None:
 			raise DeliveryInputException('Authentication required needed')
 
-		host_ip_addr = socket.gethostbyname(host)
-		encoded_host = \
-			b64encode(codecs.getencoder('windows-1252')(host_ip_addr)[0])
-
-		body = """
-		    <di:setDeliveryService
-		        xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
+		return """
 		      <ticket>
 		        <encoding>CHARENC_WINDOWS_1252</encoding>
 			    <string>%s</string>
 		      </ticket>
+		""" % self.__auth_cookie
+
+	def _encoded_host(self, host):
+		if host is None:
+			host_ip_addr = '0.0.0.0'
+		else:
+			host_ip_addr = socket.gethostbyname(host)
+
+		encoded_host = \
+			b64encode(codecs.getencoder('windows-1252')(host_ip_addr)[0])
+
+		return """
 		      <address>
 		        <encoding>CHARENC_WINDOWS_1252</encoding>
 			    <string>%s</string>
 		      </address>
+		""" % encoded_host
+
+	def set_delivery_service(self, host):
+		"""
+		Set a new delivery service host. If the host differs from what the
+		printer currently considers to be the delivery service host, the printer
+		retrieves the delivery lists.
+		"""
+		body = """
+		    <di:setDeliveryService
+		        xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
+			  %s
+			  %s
 		      <capability>
 		        <type>3</type>
 			    <commentSupported>false</commentSupported>
@@ -128,8 +147,54 @@ class DeliveryInput(object):
 			    <faxDeliverySupported>false</faxDeliverySupported>
 		      </capability>
 		    </di:setDeliveryService>
-		""" % (self.__auth_cookie, encoded_host)
+		""" % (self._ticket_xml(), self._encoded_host(host))
 		doc = self._perform_operation('setDeliveryService', body)
+
+		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+			raise DeliveryInputException('Failed to configure delivery service')
+
+	def get_delivery_service(self):
+		body = """
+			<di:getDeliveryService
+			    xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
+			  %s
+			</di:getDeliveryService>
+
+		""" % self._ticket_xml()
+
+		doc = self._perform_operation('getDeliveryService', body)
+
+		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+			raise DeliveryInputException('Failed to configure delivery service')
+
+		delivery_host_ip_addr = codecs.getdecoder('windows-1252')(
+				b64decode(_get_text_node('//*/address_out/string', doc)))[0]
+
+		if delivery_host_ip_addr == '0.0.0.0':
+			return None
+		else:
+			return socket.gethostbyaddr(delivery_host_ip_addr)[0]
+
+	def synchronize(self, host, generation_nr):
+		"""
+		Force the printer to retrieve the delivery lists from the indicated
+		delivery service host.
+
+		Current assumption: If the printer already knows the indicated
+		generation number, it does nothing. (Apparently this isn't quite
+		corrent, as the printer always checks for itsself, regardless of the
+		generation number. Therefore the generation number appears to be
+		unnecessary for this particular request.)
+		"""
+		body = """
+		    <di:synchronize
+			    xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
+			  %s
+			  <generation>%d</generation>
+			  %s
+			</di:synchronize>
+		""" % (self._ticket_xml(), generation_nr, self._encoded_host(host))
+		doc = self._perform_operation('synchronize', body)
 
 		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
 			raise DeliveryInputException('Failed to configure delivery service')
