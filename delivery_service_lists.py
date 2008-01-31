@@ -129,6 +129,15 @@ class Group(object):
 		f = open(self._file_path(base_path, printer_mac, generation_nr), 'rb')
 		self.load(f.read())
 
+	def load_config(self, config_file, section_name):
+		self.short_columns = \
+				config_file.getboolean(section_name, 'short_columns')
+		self._calc_max_columns()
+
+		self.__columns = []
+		for nr in range(1, self.max_columns):
+			name = config_file.get(section_name, 'col%d' % nr)
+			self.add_column(GroupColumn(nr, name))
 
 class IdentifierException(Exception):
 	pass
@@ -141,12 +150,12 @@ class IdentifierEntry(object):
 		self.name = name
 
 	def __repr__(self):
-		return "IdentifierEntry(id = %d, use_frequently = '%s', " \
-			"group_nr = %d, name =' %s')" % \
+		return "IdentifierEntry(id = %d, use_frequently = %s, " \
+			"group_nr = %d, name ='%s')" % \
 			(self.id, str(self.use_frequently), self.group_nr, self.name)
 
 class Identifiers(object):
-	def __init__(self, revision_nr = None, entries = []):
+	def __init__(self, revision_nr = 1, entries = []):
 		self.revision_nr = revision_nr
 		self.__entries = entries
 
@@ -207,6 +216,24 @@ class Identifiers(object):
 				 'rb')
 		self.load(f.read())
 
+	def load_config(self, config_file, section_name):
+		# We blindly assume, that the configuration data was changed.
+		self.increase()
+
+		self.__entries = []
+		for id, data in config_file.items(section_name):
+			id = int(id)
+			name, use_frequently, group_nr = data.split(',')
+			if use_frequently == 'true':
+				use_frequently = True
+			elif use_frequently == 'false':
+				use_frequently = False
+			else:
+				raise IdentifierException('Unknown flag in identifier config " \
+						"entry: "%s"' % use_frequently)
+			group_nr = int(group_nr)
+			self.add_entry(IdentifierEntry(id, use_frequently, group_nr, name))
+
 	def increase(self):
 		self.revision_nr += 1
 
@@ -251,6 +278,12 @@ class TargetList(object):
 		self.group = Group()
 		self.__destinations_list = Identifiers()
 		self.__senders_list = Identifiers()
+
+	def __repr__(self):
+		return "<TargetList(printer_mac = %s, version = %s, group = %s, "\
+			   "destinations_list = %s, senders_list = %s)>" % \
+			   (self.printer_mac, self.version, self.group,
+			    self.__destinations_list, self.__senders_list)
 
 
 	def set_dst(dself, st_list):
@@ -298,3 +331,11 @@ class TargetList(object):
 				self.version.generation_nr, suffix = 'dst')
 		self.__senders_list.load_file(base_path, self.printer_mac,
 				self.version.generation_nr, suffix = 'snd')
+
+
+	def load_config(self, config_file):
+		# Note: We do not load any version information here.
+		self.group.load_config(config_file, 'ds_groups')
+		self.__destinations_list.load_config(config_file, 'ds_destinations')
+		self.__senders_list.load_config(config_file, 'ds_senders')
+
