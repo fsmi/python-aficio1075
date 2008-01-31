@@ -338,4 +338,5 @@ class TargetList(object):
 		self.group.load_config(config_file, 'ds_groups')
 		self.__destinations_list.load_config(config_file, 'ds_destinations')
 		self.__senders_list.load_config(config_file, 'ds_senders')
+		self.version.increase()
 
