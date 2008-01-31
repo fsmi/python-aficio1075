@@ -25,6 +25,10 @@ import struct
 import sys
 import os
 
+def _ensure_dir(path):
+	if not os.path.exists(path):
+		os.mkdir(path)
+
 class UnpackBufException(Exception):
 	pass
 
@@ -117,9 +121,9 @@ class Group(object):
 
 
 	def _file_path(self, base_path, printer_mac, generation_nr):
-		return os.path.join(
-			os.path.join(base_path, 'Address'),
-			"D%s.%d.grp" % (printer_mac, generation_nr))
+		dir = os.path.join(base_path, 'Address')
+		_ensure_dir(dir)
+		return os.path.join(dir, "D%s.%d.grp" % (printer_mac, generation_nr))
 
 	def dump_file(self, base_path, printer_mac, generation_nr):
 		f = open(self._file_path(base_path, printer_mac, generation_nr), 'wb')
@@ -202,8 +206,9 @@ class Identifiers(object):
 		return data
 
 	def _file_path(self, base_path, printer_mac, generation_nr, suffix):
-		return os.path.join(
-			os.path.join(base_path, 'Address'),
+		dir = os.path.join(base_path, 'Address')
+		_ensure_dir(dir)
+		return os.path.join(dir,
 			"D%s.%d.%s" % (printer_mac, generation_nr, suffix))
 
 	def dump_file(self, base_path, printer_mac, generation_nr, suffix):
@@ -255,8 +260,9 @@ class Version(object):
 
 
 	def _file_path(self, base_path, printer_mac):
-		return os.path.join(
-			os.path.join(base_path, 'Version'), "D%s.ver" % printer_mac)
+		dir = os.path.join(base_path, 'Version')
+		_ensure_dir(dir)
+		return os.path.join(dir, "D%s.ver" % printer_mac)
 
 	def dump_file(self, base_path, printer_mac):
 		f = open(self._file_path(base_path, printer_mac), 'wb')
