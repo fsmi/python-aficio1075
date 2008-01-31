@@ -36,7 +36,7 @@ import logging
 import logging.config
 
 import socket
-from mac_address import get_mac_address
+from mac_address import get_mac_address, compact_mac_address
 
 import codecs
 from base64 import b64encode, b64decode
@@ -454,11 +454,8 @@ def watch_directories(pe, upload_directories):
 			break
 
 def host_to_macdir(hostname):
-	return 'd%s' % \
-		''.join(
-			get_mac_address(socket.gethostbyname(hostname)) \
-				.lower() \
-				.split(':'))
+	return 'd%s' % compact_mac_address( \
+			get_mac_address(socket.gethostbyname(hostname)))
 
 def sig_handler(signum, frame):
 	raise KeyboardInterrupt, signum

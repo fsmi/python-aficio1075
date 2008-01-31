@@ -82,8 +82,14 @@ def get_mac_address(ipv4_addr):
 		return None
 	return arp_entries[ipv4_addr]
 
+def compact_mac_address(mac_address):
+	"""
+	Convenience function to strip down mac addresses.
+	"""
+	if mac_address is not None:
+		return ''.join(mac_address.lower().split(':'))
 
-__all__ = [ get_mac_address ]
+__all__ = [ get_mac_address, compact_mac_address ]
 
 if __name__ == '__main__':
 	host = sys.argv[1]
