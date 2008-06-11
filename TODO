@@ -1,8 +1,3 @@
-* run as regular system daemon
-* package as debian package
 * Provide readme in English
 * tray-applet which get's notified of finished scan jobs? (Can we detect which
   user created the job?)
-* Determine format of the binary files in <ftp-root>/Address/ and
-  <ftp-root>/Version/, as everything else appears to be optional (and the
-  binary files are regularly downloaded by the printer)
