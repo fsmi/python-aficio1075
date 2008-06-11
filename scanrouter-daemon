@@ -198,10 +198,11 @@ class EmptySplitProcessor(object):
 				empty_pages = 0
 				filled_pages.append(page.file_name)
 			else:
-				self.l.debug("skipping empty page %s (%d bytes, #%d)",
-						page.file_name, page.content_length, empty_pages)
 				empty_pages += 1
-				if empty_pages == self.empty_pages_delimiter:
+				self.l.debug("skipping empty page %s (%d bytes, #%d/%d)",
+						page.file_name, page.content_length, empty_pages,
+						self.empty_pages_delimiter)
+				if empty_pages >= self.empty_pages_delimiter:
 					process_filled_pages()
 					filled_pages = []
 					empty_pages = 0
@@ -214,7 +215,7 @@ def new_empty_split(scan_job, section_name):
 		target_dir = scan_job.config_file.get(section_name, 'target_dir'),
 		empty_size = scan_job.config_file.getint(section_name, 'empty_size'),
 		empty_pages_delimiter = \
-			scan_job.config_file.get(section_name, 'num_empty_pages'))
+			scan_job.config_file.getint(section_name, 'num_empty_pages'))
 
 receiver_processors = \
 	{'join_all': new_join_all,
