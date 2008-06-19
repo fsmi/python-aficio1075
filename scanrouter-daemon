@@ -441,7 +441,7 @@ def watch_directories(pe, upload_directories):
 	notifier = Notifier(wm, pe)
 
 	for upload_directory in upload_directories:
-		wdd = wm.add_watch(upload_directory, EventsCodes.IN_CREATE, rec = True,
+		wm.add_watch(upload_directory, EventsCodes.IN_CREATE, rec = True,
 				auto_add = True)
 
 	# Loop forever
