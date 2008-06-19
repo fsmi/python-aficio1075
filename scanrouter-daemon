@@ -21,7 +21,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-# Depends on python-xml, python-pyinotify
+# Depends on python-xml, python-pyinotify, python-daemon
 
 from pyinotify import WatchManager, Notifier, EventsCodes, ProcessEvent
 
@@ -34,6 +34,7 @@ from tempfile import mkdtemp
 from subprocess import PIPE, Popen
 import logging
 import logging.config
+import daemon
 
 import socket
 from mac_address import get_mac_address, compact_mac_address
@@ -46,6 +47,7 @@ from xml import xpath
 from optparse import OptionParser
 from ConfigParser import SafeConfigParser
 
+PID_FILE = "/var/run/scanrouter.pid"
 CONFIG_FILE = "/etc/scanrouter.conf"
 
 
@@ -466,12 +468,17 @@ def main():
 	parser = OptionParser()
 
 	parser.add_option("-c", "--config",
-					action = "store", dest = "config_file",
-					help = "Configuration file",
-					default = CONFIG_FILE)
+			action = "store", dest = "config_file",
+			help = "Configuration file", default = CONFIG_FILE)
 	parser.add_option("-d", "--debug",
-					action = "store_true", dest = "debug", default = False,
-					help = "Enable additional debugging messages")
+			action = "store_true", dest = "debug", default = False,
+			help = "Enable additional debugging messages")
+	parser.add_option("--background",
+			action="store_true", dest="background", default = True,
+			help="Run the program as a daemon in the background [default]")
+	parser.add_option("--foreground",
+			action="store_false", dest="background",
+			help="Do not background the program, keep it in the foreground")
 
 	(options, args) = parser.parse_args()
 
@@ -507,6 +514,8 @@ def main():
 
 		pe = ProcessScanEvent(config_file = cf)
 
+		if options.background:
+			daemon.daemonise(pid_file = PID_FILE)
 		watch_directories(pe, [ftp_base_dir])
 
 if __name__ == '__main__':
