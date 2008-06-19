@@ -23,6 +23,13 @@
 
 # Depends on python-xml, python-pyinotify, python-daemon
 
+PACKAGE_MODULE_PATH = "/usr/share/scanrouter"
+PID_FILE = "/var/run/scanrouter.pid"
+CONFIG_FILE = "/etc/scanrouter.conf"
+
+import sys
+sys.path.append(PACKAGE_MODULE_PATH)
+
 from pyinotify import WatchManager, Notifier, EventsCodes, ProcessEvent
 
 from time import localtime, strftime
@@ -46,9 +53,6 @@ from xml import xpath
 
 from optparse import OptionParser
 from ConfigParser import SafeConfigParser
-
-PID_FILE = "/var/run/scanrouter.pid"
-CONFIG_FILE = "/etc/scanrouter.conf"
 
 
 class Page(object):
