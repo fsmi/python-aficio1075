@@ -24,7 +24,6 @@
 # Depends on python-xml, python-pyinotify, python-daemon
 
 PACKAGE_MODULE_PATH = "/usr/share/scanrouter"
-PID_FILE = "/var/run/scanrouter.pid"
 CONFIG_FILE = "/etc/scanrouter.conf"
 
 import sys
@@ -519,7 +518,8 @@ def main():
 		pe = ProcessScanEvent(config_file = cf)
 
 		if options.background:
-			daemon.daemonise(pid_file = PID_FILE)
+			daemon.daemonise(pid_file = cf.get('daemon', 'pid_file'),
+					uid = cf.get('daemon', 'user'), gid = cf.get('daemon', 'group'))
 		watch_directories(pe, [ftp_base_dir])
 
 if __name__ == '__main__':
