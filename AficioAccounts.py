@@ -68,6 +68,16 @@ class UserMaint(object):
 		""" % (self.__auth_token, oper)
 		return self._send_request(body)
 
+	def _get_operation_result(self, doc, oper_name):
+		success = _get_text_node(
+				'operationResult/%s/isSucceeded' % oper_name, doc) == 'true'
+		if success:
+			return None
+		else:
+			error_code = _get_text_node(
+				'operationResult/%s/errorCode' % oper_name, doc)
+			return error_code
+
 	def add_user(self, usercode, name):
 		encoded_name = b64encode(codecs.getencoder('windows-1252')(name)[0])
 		body = """<addUserRequest>
@@ -97,11 +107,8 @@ class UserMaint(object):
 		""" % (usercode, usercode, encoded_name)
 		doc = self._perform_operation(body)
 
-		success = _get_text_node(
-				'operationResult/addUserResult/isSucceeded', doc) == 'true'
-		if not success:
-			error_code = _get_text_node(
-				'operationResult/addUserResult/errorCode', doc)
+		error_code = self._get_operation_result(self, doc, 'addUserResult')
+		if error_code is not None:
 			raise UserMaintException('failed to add user (code %s)' %\
 					error_code)
 
@@ -114,11 +121,8 @@ class UserMaint(object):
 		""" % usercode
 		doc = self._perform_operation(body)
 
-		success = _get_text_node(
-				'operationResult/deleteUserResult/isSucceeded', doc) == 'true'
-		if not success:
-			error_code = _get_text_node(
-					'operationResult/deleteUserResult/errorCode', doc)
+		error_code = self._get_operation_result(self, doc, 'deleteUserResult')
+		if error_code is not None:
 			raise UserMaintException('failed to delete user (code %s)' %\
 					error_code)
 
@@ -136,11 +140,8 @@ class UserMaint(object):
 		""" % usercode
 		doc = self._perform_operation(body)
 
-		success = _get_text_node(
-				'operationResult/getUserInfoResult/isSucceeded', doc) == 'true'
-		if not success:
-			error_code = _get_text_node(
-					'operationResult/getUserInfoResult/errorCode', doc)
+		error_code = self._get_operation_result(self, doc, 'getUserInfoResult')
+		if error_code is not None:
 			raise UserMaintException('failed to retrieve user info (code %s)' %\
 					error_code)
 
