@@ -26,8 +26,9 @@ class Job(object):
 	def __repr__(self):
 		return "<%s(id = %s, user_name = %s, doc_name = %s, " \
 				"status = %s, pages = %s, size = %s)>" % \
-				(self.__class__.__name__, self.id, self.user_name,
-				self.doc_name, self.status, self.pages, self.size)
+				(self.__class__.__name__, self.id,
+				self.user_name,	self.doc_name, self.status,
+				self.pages, self.size)
 
 def list_to_dict(attr_name, list):
 	d = {}
@@ -46,8 +47,8 @@ class JobList(object):
 		tree = parse_html(u.read())
 		u.close()
 		job_rows = tree.find('/%s/%s/%s/%s/%s' % (xhtml_tag('body'),
-				xhtml_tag('table'), xhtml_tag('tr'), xhtml_tag('td'),
-				xhtml_tag('table')))
+				xhtml_tag('table'), xhtml_tag('tr'),
+				xhtml_tag('td'), xhtml_tag('table')))
 		self.jobs = list_to_dict('doc_name',
 				map(self.__parse_job_row, job_rows[1:]))
 
@@ -83,12 +84,12 @@ class WaitingJobList(JobList):
 	def cancel_job(self, doc_name):
 		u = urllib.urlopen("%s/del_joblist.cgi" % self.base_url,
 				urllib.urlencode([('passwd', self.passw),
-						('del', 'L&ouml;schen'), ('0', 'ON'),
-						('id', doc_name)]))
+						('del', 'L&ouml;schen'),
+						('0', 'ON'), ('id', doc_name)]))
 		raw_html = u.read()
 		u.close()
-		# Use HTML output to refresh the list and check whether the operation
-		# was successful.
+		# Use HTML output to refresh the list and check whether the
+		# operation was successful.
 		tree = parse_html(raw_html)
 		job_rows = self.__get_job_rows(tree)
 		if job_rows is None:
@@ -105,10 +106,12 @@ class WaitingJobList(JobList):
 				size = job_row[4].text.strip())
 
 	def __get_job_rows(self, tree):
-		return tree.find('/%s/%s/%s/%s/%s/%s/%s/%s/%s' % (xhtml_tag('body'),
-				xhtml_tag('table'), xhtml_tag('tr'), xhtml_tag('td'),
-				xhtml_tag('form'), xhtml_tag('table'), xhtml_tag('tr'),
-				xhtml_tag('td'), xhtml_tag('table')))
+		return tree.find('/%s/%s/%s/%s/%s/%s/%s/%s/%s' % (
+				xhtml_tag('body'), xhtml_tag('table'),
+				xhtml_tag('tr'), xhtml_tag('td'),
+				xhtml_tag('form'), xhtml_tag('table'),
+				xhtml_tag('tr'), xhtml_tag('td'),
+				xhtml_tag('table')))
 
 	def refresh(self):
 		u = urllib.urlopen("%s/manage_joblist.cgi" % self.base_url)
