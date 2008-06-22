@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # vim:set ts=4 sw=4 noet:
 
-# AficioAccounts.py -- Adapter for the XMLRPC and SOAP interfaces of Ricoh
-#   Aficio 1075
+# AficioAccounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio 1075
+#   concerning account management.
 #
 # Copyright (C) 2007 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
 # Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
@@ -37,37 +37,19 @@ from xml import xpath
 def _get_text_node(path, node):
 	return xpath.Evaluate('string(%s)' % path, node)
 
-class Printer(object):
-	def __init__(self, *args, **kwargs):
-		self.__host = kwargs['host']
-		self.__port = kwargs['port']
-
-	def get_host(self):
-		return self.__host
-	host = property(get_host)
-
-	def get_port(self):
-		return self.__port
-	port = property(get_port)
-
-class PrinterException:
-	def __init__(self, reason):
-		self.reason = reason
-	def __str__(self):
-		return self.reason
-
-class UserMaintException(PrinterException):
+class UserMaintException(RuntimeError):
 	pass
 
 class UserMaint(object):
 	def __init__(self, *args, **kwargs):
-		self.__printer = kwargs['printer']
+		self.__host = kwargs['host']
+		self.__port = kwargs.get('port', 80)
 		self.__auth_token = kwargs['auth_token']
 
 	def _send_request(self, body):
 		headers = {'Content-Type': 'text/xml;charset=us-ascii'}
 		uri = "http://%s:%d/System/usermaint/" % \
-			(self.__printer.host, self.__printer.port)
+			(self.__host, self.__port)
 
 		h = httplib2.Http()
 		(result, content) = h.request(uri, "POST", body = body,
