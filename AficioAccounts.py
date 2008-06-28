@@ -345,9 +345,10 @@ class UserMaintSession(object):
 			raise UserMaintException('failed to retrieve user info (code %s)' %\
 					error_code)
 
-		users = []
+		users = {}
 		# Iterate over the users.
 		for user_node in xpath.Evaluate(
 				'operationResult/getUserInfoResult/result/user', doc):
-			users.append(User.from_xml(user_node))
+			user = User.from_xml(user_node)
+			users[user.user_code] = user
 		return users
