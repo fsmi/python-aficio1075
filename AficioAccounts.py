@@ -88,31 +88,6 @@ class UserStatistics(object):
 	def get_scan_a4_total(self):
 		return self.scan_a4 + (self.scan_a3 * 2)
 
-	def to_xml(self):
-		return """
-			<statisticsInfo>
-				<copyInfo>
-					<monochrome>
-						<singleSize>%u</singleSize>
-						<doubleSize>%u</doubleSize>
-					</monochrome>
-				</copyInfo>
-				<printerInfo>
-					<monochrome>
-						<singleSize>%u</singleSize>
-						<doubleSize>%u</doubleSize>
-					</monochrome>
-				</printerInfo>
-				<scannerInfo>
-					<monochrome>
-						<singleSize>%u</singleSize>
-						<doubleSize>%u</doubleSize>
-					</monochrome>
-				</scannerInfo>
-			</statisticsInfo>""" % (self.copy_a4,
-				self.copy_a3, self.print_a4, self.print_a3,
-				self.scan_a4, self.scan_a3)
-
 	@staticmethod
 	def from_xml(stats_node):
 		assert stats_node.tagName == 'statisticsInfo'
@@ -205,8 +180,6 @@ class User(object):
 					STRING_ENCODING, encoded_name)
 		if self.restrict is not None:
 			xml_str += self.restrict.to_xml()
-		if self.stats is not None:
-			xml_str += self.stats.to_xml()
 		xml_str += '</user>'
 		return xml_str
 
