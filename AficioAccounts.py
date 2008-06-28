@@ -48,6 +48,15 @@ def _encode(str, encoding = STRING_ENCODING):
 	else:
 		return b64encode(codecs.getencoder(encoding)(str)[0])
 
+def _get_operation_result(doc, oper_name):
+	success = _get_text_node(
+			'operationResult/%s/isSucceeded' % oper_name, doc) == 'true'
+	if success:
+		return None
+	else:
+		error_code = _get_text_node(
+			'operationResult/%s/errorCode' % oper_name, doc)
+		return error_code
 
 def _get_text_node(path, base_node):
 	return xpath.Evaluate('string(%s)' % path, base_node)
@@ -66,7 +75,7 @@ class UserStatistics(object):
 		self.scan_a4 = scan_a4
 		self.scan_a3 = scan_a3
 
-	def __str__(self):
+	def __repr__(self):
 		return '<UserStatistics c%u,%u p%u,%u s%u,%u>' % (self.copy_a4,
 				self.copy_a3, self.print_a4, self.print_a3,
 				self.scan_a4, self.scan_a3)
@@ -131,7 +140,7 @@ class UserRestrict(object):
 		self.grant_scanner = grant_scanner
 		self.grant_storage = grant_storage
 
-	def __str__(self):
+	def __repr__(self):
 		return '<UserRestrict c%dp%ds%dst%d>' % (self.grant_copy,
 				self.grant_printer, self.grant_scanner, self.grant_storage)
 
@@ -182,46 +191,51 @@ class User(object):
 		self.restrict = restrict
 		self.stats = stats
 
-	def __str__(self):
-		return '<User "%s" (#%u, %s, %s)>' % (self.user_code, self.name,
+	def __repr__(self):
+		return '<User %s (#%s, %s, %s)>' % (str(self.name), str(self.user_code),
 				str(self.restrict), str(self.stats))
 
 	def to_xml(self):
-		encoded_name = _encode(self.name, STRING_ENCODING)
-		if self.restrict is None:
-			restr_str = ''
-		else:
-			restr_str = self.restrict.to_xml()
-		if self.stats is None:
-			stat_str = ''
-		else:
-			stat_str = self.stats.to_xml()
-		return """<user version="1.1">
-					<userCode>%u</userCode>
-					<userType>general</userType>
-					<userCodeName enc="%s">%s</userCodeName>
-					%s
-					%s
-				</user>""" % (self.user_code, STRING_ENCODING, encoded_name,
-					restr_str, stat_str)
+		xml_str = """<user version="1.1">
+					<userType>general</userType>"""
+		if user_code is not None:
+			xml_str += '<userCode>%u</userCode>' % self.user_code
+		if self.name is not None:
+			encoded_name = _encode(self.name, STRING_ENCODING)
+			xml_str += '<userCodeName enc="%s">%s</userCodeName>' % encoded_name
+		if self.restrict is not None:
+			xml_str += self.restrict.to_xml()
+		if self.stats is not None:
+			xml_str += self.stats.to_xml()
+		xml_str += '</user>'
+		return xml_str
 
 	@staticmethod
 	def from_xml(user_node):
 		assert user_node.tagName == 'user' \
 				and user_node.getAttribute('version') == '1.1'
 
-		# Load data
-		user_code = _get_text_node('userCode', user_node)
-		if user_code == 'other':
-			user_code = 0
-			name = 'other'
+		# Load user code (if available)
+		user_code_nodes = user_node.getElementsByTagName('userCode')
+		if len(user_code_nodes) == 0:
+			user_code = None
 		else:
-			user_code = int(user_code)
-			code_name_node = user_node.getElementsByTagName('userCodeName')[0]
-			name = _decode(_get_text_node('.', code_name_node),
-					code_name_node.getAttribute('enc'))
+			user_code = _get_text_node('.', user_code_nodes[0])
+			# 'other' is a special case.
+			if user_code == 'other':
+				user_code = 0
+				name = 'other'
+			else:
+				user_code = int(user_code)
+				# Load user code name (if available)
+				code_name_nodes = user_node.getElementsByTagName('userCodeName')
+				if len(code_name_nodes) == 0:
+					name = None
+				else:
+					name = _decode(_get_text_node('.', code_name_nodes[0]),
+							code_name_nodes[0].getAttribute('enc'))
 
-		# Load sub-data
+		# Load sub-data (if available)
 		restrict_nodes = user_node.getElementsByTagName('restrictInfo')
 		if len(restrict_nodes) == 0:
 			restrict = None
@@ -271,16 +285,6 @@ class UserMaintSession(object):
 		""" % (self.__auth_token, oper)
 		return self._send_request(body)
 
-	def _get_operation_result(self, doc, oper_name):
-		success = _get_text_node(
-				'operationResult/%s/isSucceeded' % oper_name, doc) == 'true'
-		if success:
-			return None
-		else:
-			error_code = _get_text_node(
-				'operationResult/%s/errorCode' % oper_name, doc)
-			return error_code
-
 	def add_user(self, user_code, name):
 		u = User(user_code = user_code, name = name,
 				restrict = UserRestrict(grant_copy = True,
@@ -295,7 +299,7 @@ class UserMaintSession(object):
 		""" % (user_code, u.to_xml())
 		doc = self._perform_operation(body)
 
-		error_code = self._get_operation_result(doc, 'addUserResult')
+		error_code = _get_operation_result(doc, 'addUserResult')
 		if error_code is not None:
 			raise UserMaintException('failed to add user (code %s)' %\
 					error_code)
@@ -309,36 +313,39 @@ class UserMaintSession(object):
 		""" % user_code
 		doc = self._perform_operation(body)
 
-		error_code = self._get_operation_result(doc, 'deleteUserResult')
+		error_code = _get_operation_result(doc, 'deleteUserResult')
 		if error_code is not None:
 			raise UserMaintException('failed to delete user (code %s)' %\
 					error_code)
 
-	def user_counter(self, user_code=''):
+	def get_user_info(self, user_code='', req_user_code = True,
+			req_user_code_name = True, req_restrict_info = True,
+			req_statistics_info = True):
 		body = """<getUserInfoRequest>
 					<target>
 						<userCode>%s</userCode>
 					</target>
-					<user version="1.1">
-						<userCode/>
-						<userCodeName/>
-						<restrictInfo/>
-						<statisticsInfo/>
-					</user>
-				</getUserInfoRequest>
-		""" % user_code
+					<user version="1.1">""" % user_code
+		if req_user_code:
+			body += '<userCode/>'
+		if req_user_code_name:
+			body += '<userCodeName/>'
+		if req_restrict_info:
+			body += '<restrictInfo/>'
+		if req_statistics_info:
+			body += '<statisticsInfo/>'
+		body += """</user>
+				</getUserInfoRequest>"""
 		doc = self._perform_operation(body)
 
-		error_code = self._get_operation_result(doc, 'getUserInfoResult')
+		error_code = _get_operation_result(doc, 'getUserInfoResult')
 		if error_code is not None:
 			raise UserMaintException('failed to retrieve user info (code %s)' %\
 					error_code)
 
-		list = []
+		users = []
 		# Iterate over the users.
 		for user_node in xpath.Evaluate(
 				'operationResult/getUserInfoResult/result/user', doc):
-			u = User.from_xml(user_node)
-			list.append((u.user_code, u.name, u.stats.print_a3,
-					u.stats.print_a4, u.stats.copy_a3, u.stats.copy_a4))
-		return list
+			users.append(User.from_xml(user_node))
+		return users
