@@ -284,19 +284,15 @@ class UserMaintSession(object):
 		""" % (self.auth_token, oper)
 		return self._send_request(body)
 
-	def add_user(self, user_code, name):
+	def add_user(self, user):
 		"""Add a user account."""
-		u = User(user_code = user_code, name = name,
-				restrict = UserRestrict(grant_copy = True,
-						grant_printer = True, grant_scanner = True,
-						grant_storage = True))
 		body = """<addUserRequest>
 					<target>
 						<userCode>%u</userCode>
 					</target>
 					%s
 				</addUserRequest>
-		""" % (user_code, u.to_xml())
+		""" % (user.user_code, user.to_xml())
 		doc = self._perform_operation(body)
 
 		error_code = _get_operation_result(doc, 'addUserResult')
