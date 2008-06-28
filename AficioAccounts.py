@@ -39,7 +39,7 @@ def _decode(str, encoding = STRING_ENCODING):
 	if encoding == 'none' or encoding is None or encoding == '':
 		return str
 	else:
-		return codecs.getdecoder(encoding)(b64decode(str))
+		return codecs.getdecoder(encoding)(b64decode(str))[0]
 
 def _encode(str, encoding = STRING_ENCODING):
 	if encoding == 'none' or encoding is None or encoding == '':
@@ -191,17 +191,18 @@ class User(object):
 		self.stats = stats
 
 	def __repr__(self):
-		return '<User %s (#%s, %s, %s)>' % (str(self.name), str(self.user_code),
-				str(self.restrict), str(self.stats))
+		return '<User "%s" (#%s, %s, %s)>' % (str(self.name),
+				str(self.user_code), str(self.restrict), str(self.stats))
 
 	def to_xml(self):
 		xml_str = """<user version="1.1">
 					<userType>general</userType>"""
-		if user_code is not None:
+		if self.user_code is not None:
 			xml_str += '<userCode>%u</userCode>' % self.user_code
 		if self.name is not None:
 			encoded_name = _encode(self.name, STRING_ENCODING)
-			xml_str += '<userCodeName enc="%s">%s</userCodeName>' % encoded_name
+			xml_str += '<userCodeName enc="%s">%s</userCodeName>' % (
+					STRING_ENCODING, encoded_name)
 		if self.restrict is not None:
 			xml_str += self.restrict.to_xml()
 		if self.stats is not None:
