@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# vim:set ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 noet:
 
 # AficioAccounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio 1075
 #   concerning account management.
@@ -258,15 +257,15 @@ class UserMaintSession(object):
 	There is no session on the network level: Each request initiates a
 	self-contained XML-RPC request.
 	"""
-	def __init__(self, *args, **kwargs):
-		self.__host = kwargs['host']
-		self.__port = kwargs.get('port', 80)
-		self.__auth_token = kwargs['auth_token']
+	def __init__(self, auth_token, host, port = 80):
+		self.auth_token = auth_token
+		self.host = host
+		self.port = port
 
 	def _send_request(self, body):
 		headers = {'Content-Type': 'text/xml;charset=us-ascii'}
 		uri = "http://%s:%d/System/usermaint/" % \
-			(self.__host, self.__port)
+			(self.host, self.port)
 
 		h = httplib2.Http()
 		(result, content) = h.request(uri, "POST", body = body,
@@ -282,10 +281,11 @@ class UserMaintSession(object):
 				<authorization>%s</authorization>
 			%s
 			</operation>
-		""" % (self.__auth_token, oper)
+		""" % (self.auth_token, oper)
 		return self._send_request(body)
 
 	def add_user(self, user_code, name):
+		"""Add a user account."""
 		u = User(user_code = user_code, name = name,
 				restrict = UserRestrict(grant_copy = True,
 						grant_printer = True, grant_scanner = True,
@@ -305,6 +305,7 @@ class UserMaintSession(object):
 					error_code)
 
 	def delete_user(self, user_code):
+		"""Delete a user account."""
 		body = """<deleteUserRequest>
 					<target>
 						<userCode>%u</userCode>
@@ -321,6 +322,7 @@ class UserMaintSession(object):
 	def get_user_info(self, user_code='', req_user_code = True,
 			req_user_code_name = True, req_restrict_info = True,
 			req_statistics_info = True):
+		"""Get information about a user account."""
 		body = """<getUserInfoRequest>
 					<target>
 						<userCode>%s</userCode>
