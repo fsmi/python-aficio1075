@@ -1,6 +1,5 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
-# vim:set ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 noet:
 
 # AficioJobs.py -- Adapter for the HTTP / HTML interface to print job control of
 #   Ricoh Aficio 1075
@@ -65,6 +64,7 @@ def list_to_dict(attr_name, list):
 class JobList(object):
 	def __init__(self, *args, **kwargs):
 		self.base_url = 'http://%s' % kwargs['host']
+		self.jobs = None
 		self.refresh()
 
 	def refresh(self):
