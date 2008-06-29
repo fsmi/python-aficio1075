@@ -1,0 +1,10 @@
+Accounts:
+- Find a way to _modify_ an account. (i.e. trace the utility responsible for
+  this stuff.) We currently have to delete+add an account to modify it, which
+  resets the counters.
+
+- command-line tool to create, delete, disable and list accounts
+- cron tool to create print accounts for snack-account people, disable inactive
+  and altguru accounts.
+- Replace manual XML string building with XML object-composition. Use
+  ElementTree instead of DOM.
