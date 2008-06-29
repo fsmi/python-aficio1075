@@ -28,6 +28,7 @@ import urllib
 from StringIO import StringIO
 import xml.etree.ElementTree as ET
 import tidy
+import weakref
 
 def parse_html(html_str):
 	xhtml_str = tidy.parseString(html_str, output_xhtml = 1, indent = 1,
@@ -123,7 +124,7 @@ class WaitingJobList(JobList):
 
 	def __parse_job_row(self, job_row):
 		assert len(job_row) == 6
-		return WaitingJob(queue = self,
+		return WaitingJob(queue = weakref.proxy(self),
 				doc_name = job_row[0].text.strip(),
 				user_name = job_row[1].text.strip(),
 				status = job_row[3].text.strip(),
