@@ -165,6 +165,15 @@ class User(object):
 		self.restrict = restrict
 		self.stats = stats
 
+	def _set_name(self, name):
+		if len(name) > 20:
+			self.__name = name[0:19]
+		else:
+			self.__name = name
+	def _get_name(self):
+		return self.__name
+	name = property(_get_name, _set_name)
+
 	def __repr__(self):
 		return '<User "%s" (#%s, %s, %s)>' % (str(self.name),
 				str(self.user_code), str(self.restrict), str(self.stats))
