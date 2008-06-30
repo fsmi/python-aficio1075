@@ -165,6 +165,28 @@ class User(object):
 		self.restrict = restrict
 		self.stats = stats
 
+	def _set_user_code(self, user_code):
+		if not hasattr(self, '_orig_user_code'):
+			if hasattr(self, '_user_code'):
+				self._orig_user_code = self._user_code
+		self._user_code = user_code
+	def _get_user_code(self):
+		return self._user_code
+	user_code = property(_get_user_code, _set_user_code)
+
+	def _get_orig_user_code(self):
+		"""Get the user code assigned to the user on the server-side."""
+		if hasattr(self, '_orig_user_code'):
+			return self._orig_user_code
+		else:
+			return self._user_code
+	orig_user_code = property(_get_orig_user_code)
+
+	def notify_flushed(self):
+		"""Inform the object, that the data was flushed to the server."""
+		if hasattr(self, '_orig_user_code'):
+			del self._orig_user_code
+
 	def _set_name(self, name):
 		if len(name) > 20:
 			self.__name = name[0:19]
@@ -282,6 +304,7 @@ class UserMaintSession(object):
 		if error_code is not None:
 			raise UserMaintException('failed to add user (code %s)' %\
 					error_code)
+		user.notify_flushed()
 
 	def delete_user(self, user_code):
 		"""Delete a user account."""
@@ -340,10 +363,11 @@ class UserMaintSession(object):
 						<deviceId></deviceId>
 					</target>
 					%s
-				</setUserInfoRequest>""" % (user.user_code, user.to_xml())
+				</setUserInfoRequest>""" % (user.orig_user_code, user.to_xml())
 		doc = self._perform_operation(body)
 
 		error_code = _get_operation_result(doc, 'setUserInfoResult')
 		if error_code is not None:
 			raise UserMaintException('failed to modify user (code %s)' %\
 					error_code)
+		user.notify_flushed()
