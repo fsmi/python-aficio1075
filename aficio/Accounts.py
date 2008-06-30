@@ -331,3 +331,19 @@ class UserMaintSession(object):
 			user = User.from_xml(user_node)
 			users[user.user_code] = user
 		return users
+
+	def set_user_info(self, user):
+		"""Modify a user account."""
+		body = """<setUserInfoRequest>
+					<target>
+						<userCode>%u</userCode>
+						<deviceId></deviceId>
+					</target>
+					%s
+				</setUserInfoRequest>""" % (user.user_code, user.to_xml())
+		doc = self._perform_operation(body)
+
+		error_code = _get_operation_result(doc, 'setUserInfoResult')
+		if error_code is not None:
+			raise UserMaintException('failed to modify user (code %s)' %\
+					error_code)
