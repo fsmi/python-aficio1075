@@ -77,9 +77,15 @@ def main():
 			continue
 
 	for acct in accts_to_disable:
-		# TODO: Disable the account. Remove it in case the counters are already
-		#       set to 0.
-		pass
+		if acct.stats.is_zero():
+			# Counters are zero, remove the account.
+			um.delete_user(acct.user_code)
+		else:
+			if acct.restrict.has_any_permissions():
+				# Counters are non-zero, wait for it to be accounted for. Only
+				# disable the account.
+				acct.restrict.revoke_all()
+				um.set_user_info(acct)
 
 	users_to_add = []
 
