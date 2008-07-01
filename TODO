@@ -1,4 +1,5 @@
 Accounts:
+- add config file feature to af-sync-accounts-to-unix-groups.
 - command-line tool to create, delete, disable and list accounts
 - cron tool to create print accounts for snack-account people, disable inactive
   and altguru accounts.
