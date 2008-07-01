@@ -49,10 +49,14 @@ def main():
 	for valid_group in valid_groups:
 		valid_users += grp.getgrnam(valid_group).gr_mem
 
-	accts_to_disable = []
-
 	um = accounts.UserMaintSession(host = options.hostname,
 			auth_token = options.auth_token)
+
+	# Create list of accounts that need to be disabled or removed.
+	#
+
+	accts_to_disable = []
+
 	accts = um.get_user_info()
 	for acct in accts.values():
 		if (acct.user_code < user_code_min or \
@@ -65,27 +69,32 @@ def main():
 		try:
 			pwentry = pwd.getpwuid(acct.user_code)
 		except KeyError:
-			print 'Unknown account: %s' % str(acct)
 			accts_to_disable.append(acct)
 			continue
 
 		# Is the account a member of one of the relevant groups?
 		if pwentry.pw_name not in valid_users:
-			print 'User not within groups: %s (%s)' % (unicode(acct),
-					pwentry.pw_name)
 			accts_to_disable.append(acct)
 			continue
 
+	# Disable or remove the accounts.
+	#
+
 	for acct in accts_to_disable:
 		if acct.stats.is_zero():
+			print "Removing user %s (%u)" % (acct.name, acct.user_code)
 			# Counters are zero, remove the account.
 			um.delete_user(acct.user_code)
 		else:
 			if acct.restrict.has_any_permissions():
 				# Counters are non-zero, wait for it to be accounted for. Only
 				# disable the account.
+				print "Disabling user %s (%u)" % (acct.name, acct.user_code)
 				acct.restrict.revoke_all()
 				um.set_user_info(acct)
+
+	# Create list of accounts that need to be created.
+	#
 
 	users_to_add = []
 
@@ -100,9 +109,10 @@ def main():
 
 		if pwentry.pw_name in valid_users:
 			# User is member of the relevant groups.
-			print 'User not found on printer: %s (%u)' % (pwentry.pw_name,
-					pwentry.pw_uid)
 			users_to_add.append(pwentry)
+
+	# Create accounts.
+	#
 
 	for pwentry in users_to_add:
 		acct_restr = accounts.UserRestrict(grant_copy = True,
