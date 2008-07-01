@@ -1,0 +1,88 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# vim:set ft=python ts=4 sw=4 noet:
+
+# af-sync-accounts-to-unix-groups -- Synchronise the list of printer accounts
+#  with the list of unix users and their membership in unix groups.
+#
+# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
+
+# Depends on aficio.accounts
+
+from optparse import OptionParser
+from aficio import accounts
+import pwd
+import grp
+
+user_code_min = 1000
+user_code_max = 4999
+ignored_user_codes = [ 3974, 3975, 2222, 2223, 3378, 1111, 1112, 1113, 1114,
+		1115, 1116, 1117, 1118, 1119 ]
+
+valid_groups = [ 'fsusers', 'newbie' ]
+
+def main():
+	parser = OptionParser()
+	parser.add_option("--hostname", action = "store", dest = "hostname",
+			help = "Hostname of the Aficio printer")
+	parser.add_option("--auth-token", action = "store", dest = "auth_token",
+			help = "Authentikation token for the Aficio printer")
+	(options, args) = parser.parse_args()
+	if len(args) != 0:
+		parser.error("incorrect number of arguments")
+
+	valid_users = []
+	for valid_group in valid_groups:
+		valid_users += grp.getgrnam(valid_group).gr_mem
+
+	accts_to_disable = []
+
+	um = accounts.UserMaintSession(host = options.hostname,
+			auth_token = options.auth_token)
+	accts = um.get_user_info()
+	for acct in accts.values():
+		if (acct.user_code < user_code_min or \
+				acct.user_code > user_code_max) or \
+					acct.user_code in ignored_user_codes:
+			# Skip
+			continue
+
+		# Does the user code have a matching UNIX account?
+		try:
+			pwentry = pwd.getpwuid(acct.user_code)
+		except KeyError:
+			print 'Unknown account: %s' % str(acct)
+			accts_to_disable.append(acct)
+			continue
+
+		# Is the account a member of one of the relevant groups?
+		if pwentry.pw_name not in valid_users:
+			print 'User not within groups: %s (%s)' % (unicode(acct),
+					pwentry.pw_name)
+			accts_to_disable.append(acct)
+			continue
+
+	for acct in accts_to_disable:
+		# TODO: Disable the account. Remove it in case the counters are already
+		#       set to 0.
+		pass
+
+	# TODO: Search for UNIX accounts that fit the criteria, but don't have an
+	#       account on the printer yet. Create those accounts.
+
+if __name__ == '__main__':
+	main()
