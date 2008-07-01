@@ -41,11 +41,11 @@ def _decode(str, encoding = STRING_ENCODING):
 	else:
 		return codecs.getdecoder(encoding)(b64decode(str))[0]
 
-def _encode(str, encoding = STRING_ENCODING):
+def _encode(str, encoding = STRING_ENCODING, error = 'ignore'):
 	if encoding == 'none' or encoding is None or encoding == '':
 		return str
 	else:
-		return b64encode(codecs.getencoder(encoding)(str)[0])
+		return b64encode(codecs.getencoder(encoding)(str, error)[0])
 
 def _get_operation_result(doc, oper_name):
 	success = _get_text_node(

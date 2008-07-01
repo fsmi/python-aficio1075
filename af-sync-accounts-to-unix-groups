@@ -105,9 +105,12 @@ def main():
 			users_to_add.append(pwentry)
 
 	for pwentry in users_to_add:
-		# TODO: Add the user. Create an account with the user code set to the
-		#       UID and the name set to the GECOS field.
-		pass
+		acct_restr = accounts.UserRestrict(grant_copy = True,
+				grant_printer = True, grant_scanner = True)
+		name = unicode(pwentry.pw_gecos, 'utf-8')
+		print "Adding user %s (%u)" % (name, pwentry.pw_uid)
+		acct = accounts.User(pwentry.pw_uid, name, acct_restr)
+		um.add_user(acct)
 
 if __name__ == '__main__':
 	main()
