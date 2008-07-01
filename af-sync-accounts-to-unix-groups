@@ -86,41 +86,59 @@ def main():
 			# Counters are zero, remove the account.
 			um.delete_user(acct.user_code)
 		else:
+			# Counters are non-zero, wait for it to be accounted for.
 			if acct.restrict.has_any_permissions():
-				# Counters are non-zero, wait for it to be accounted for. Only
-				# disable the account.
+				# Not disabled yet, so disable the account.
 				print "Disabling user %s (%u)" % (acct.name, acct.user_code)
 				acct.restrict.revoke_all()
 				um.set_user_info(acct)
 
-	# Create list of accounts that need to be created.
+	# Create list of accounts that need to be created or re-activated.
 	#
 
 	users_to_add = []
+	accts_to_activate = []
 
 	for pwentry in pwd.getpwall():
 		if (pwentry.pw_uid < user_code_min or pwentry.pw_uid > user_code_max):
 			# Skip
 			continue
 
-		if pwentry.pw_uid in accts:
-			# User has an account.
+		if pwentry.pw_name not in valid_users:
+			# User is not member of the relevant groups: Skip.
 			continue
 
-		if pwentry.pw_name in valid_users:
-			# User is member of the relevant groups.
+		if pwentry.pw_uid not in accts:
+			# User has no account yet.
 			users_to_add.append(pwentry)
+			continue
 
-	# Create accounts.
+		acct = accts[pwentry.pw_uid]
+		if not acct.restrict.has_any_permissions():
+			# User's account is disabled.
+			accts_to_activate.append(acct)
+			continue
+
+
+	# Create and activate accounts.
 	#
 
+	# Default restrictions / permissions.
+	acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
+			grant_scanner = True)
+
+	# Create new accounts.
 	for pwentry in users_to_add:
-		acct_restr = accounts.UserRestrict(grant_copy = True,
-				grant_printer = True, grant_scanner = True)
 		name = unicode(pwentry.pw_gecos, 'utf-8')
 		print "Adding user %s (%u)" % (name, pwentry.pw_uid)
 		acct = accounts.User(pwentry.pw_uid, name, acct_restr)
 		um.add_user(acct)
+
+	# Activate existing accounts.
+	for acct in accts_to_activate:
+		print "Activating user %s (%u)" % (acct.name, acct.user_code)
+		acct.restrict = acct_restr
+		um.set_user_info(acct)
 
 if __name__ == '__main__':
 	main()
