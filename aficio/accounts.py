@@ -88,6 +88,11 @@ class UserStatistics(object):
 	def get_scan_a4_total(self):
 		return self.scan_a4 + (self.scan_a3 * 2)
 
+	def is_zero(self):
+		return self.copy_a4 == 0 and self.copy_a3 == 0 and \
+				self.print_a4 == 0 and self.print_a3 == 0 and \
+				self.scan_a4 == 0 and self.scan_a3 == 0
+
 	@staticmethod
 	def from_xml(stats_node):
 		assert stats_node.tagName == 'statisticsInfo'
@@ -123,6 +128,18 @@ class UserRestrict(object):
 			return '<available/>'
 		else:
 			return '<restricted/>'
+
+	def revoke_all(self):
+		"""Revoke all privileges."""
+		self.grant_copy = False
+		self.grant_printer = False
+		self.grant_scanner = False
+		self.grant_storage = False
+
+	def has_any_permissions(self):
+		"""Are there any granted permissions at all?"""
+		return self.grant_copy or self.grant_printer or self.grant_scanner or \
+				self.grant_storage
 
 	def to_xml(self):
 		return """
