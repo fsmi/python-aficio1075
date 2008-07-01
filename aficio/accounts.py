@@ -197,7 +197,7 @@ class User(object):
 	name = property(_get_name, _set_name)
 
 	def __repr__(self):
-		return '<User "%s" (#%s, %s, %s)>' % (str(self.name),
+		return '<User "%s" (#%s, %s, %s)>' % (unicode(self.name),
 				str(self.user_code), str(self.restrict), str(self.stats))
 
 	def to_xml(self):
