@@ -81,8 +81,27 @@ def main():
 		#       set to 0.
 		pass
 
-	# TODO: Search for UNIX accounts that fit the criteria, but don't have an
-	#       account on the printer yet. Create those accounts.
+	users_to_add = []
+
+	for pwentry in pwd.getpwall():
+		if (pwentry.pw_uid < user_code_min or pwentry.pw_uid > user_code_max):
+			# Skip
+			continue
+
+		if pwentry.pw_uid in accts:
+			# User has an account.
+			continue
+
+		if pwentry.pw_name in valid_users:
+			# User is member of the relevant groups.
+			print 'User not found on printer: %s (%u)' % (pwentry.pw_name,
+					pwentry.pw_uid)
+			users_to_add.append(pwentry)
+
+	for pwentry in users_to_add:
+		# TODO: Add the user. Create an account with the user code set to the
+		#       UID and the name set to the GECOS field.
+		pass
 
 if __name__ == '__main__':
 	main()
