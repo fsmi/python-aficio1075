@@ -176,6 +176,8 @@ class UserRestrict(object):
 						'localStorageInfo/plot/available', restrict_node)) == 1)
 
 class User(object):
+	MAX_NAME_LEN = 20
+
 	def __init__(self, user_code, name, restrict = None, stats = None):
 		self.user_code = user_code
 		self.name = name
@@ -205,10 +207,10 @@ class User(object):
 			del self._orig_user_code
 
 	def _set_name(self, name):
-		if len(name) > 20:
-			self.__name = name[0:19]
-		else:
-			self.__name = name
+		if len(name) > self.MAX_NAME_LEN:
+			raise UserMaintException('user name "%s" too long, max %d ' \
+					'characters' % (name, self.MAX_NAME_LEN))
+		self.__name = name
 	def _get_name(self):
 		return self.__name
 	name = property(_get_name, _set_name)
