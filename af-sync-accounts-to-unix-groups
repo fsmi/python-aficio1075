@@ -130,6 +130,8 @@ def main():
 	# Create new accounts.
 	for pwentry in users_to_add:
 		name = unicode(pwentry.pw_gecos, 'utf-8')
+		if len(name) > accounts.User.MAX_NAME_LEN:
+			name = name[0:accounts.User.MAX_NAME_LEN - 1]
 		print "Adding user %s (%u)" % (name, pwentry.pw_uid)
 		acct = accounts.User(pwentry.pw_uid, name, acct_restr)
 		um.add_user(acct)
