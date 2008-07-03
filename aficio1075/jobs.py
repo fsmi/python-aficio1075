@@ -54,12 +54,6 @@ class Job(object):
 				self.user_name,	self.doc_name, self.status,
 				self.pages, self.size)
 
-def list_to_dict(attr_name, list):
-	d = {}
-	for e in list:
-		d[getattr(e, attr_name)] = e
-	return d
-
 
 class JobList(object):
 	def __init__(self, *args, **kwargs):
@@ -74,8 +68,7 @@ class JobList(object):
 		job_rows = tree.find('/%s/%s/%s/%s/%s' % (xhtml_tag('body'),
 				xhtml_tag('table'), xhtml_tag('tr'),
 				xhtml_tag('td'), xhtml_tag('table')))
-		self.jobs = list_to_dict('doc_name',
-				map(self.__parse_job_row, job_rows[1:]))
+		self.jobs = map(self.__parse_job_row, job_rows[1:])
 
 	def __parse_job_row(self, job_row):
 		assert len(job_row) == 7
@@ -121,8 +114,7 @@ class WaitingJobList(JobList):
 		job_rows = self.__get_job_rows(tree)
 		if job_rows is None:
 			raise JobCancelFailed(doc_name, raw_html)
-		self.jobs = list_to_dict('doc_name',
-				map(self.__parse_job_row, job_rows[1:]))
+		self.jobs = map(self.__parse_job_row, job_rows[1:])
 
 	def __parse_job_row(self, job_row):
 		assert len(job_row) == 6
@@ -146,6 +138,5 @@ class WaitingJobList(JobList):
 		u.close()
 		tree = parse_html(raw_html)
 		job_rows = self.__get_job_rows(tree)
-		self.jobs = list_to_dict('doc_name',
-				map(self.__parse_job_row, job_rows[1:]))
+		self.jobs = map(self.__parse_job_row, job_rows[1:])
 

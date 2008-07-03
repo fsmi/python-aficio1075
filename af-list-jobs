@@ -29,7 +29,7 @@ from aficio1075 import jobs
 def display_list(joblist):
 	if joblist.jobs is None:
 		return
-	for job in sorted(joblist.jobs.values(), lambda x, y: -cmp(x.id, y.id)):
+	for job in sorted(joblist.jobs, lambda x, y: -cmp(x.id, y.id)):
 		print '%s, %s, %s, %s, %s, %s' % (job.id, job.user_name, job.doc_name,
 				job.status, job.pages, job.size)
 
