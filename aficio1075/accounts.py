@@ -322,6 +322,11 @@ class UserMaintSession(object):
 		""" % (security.encode_password(self.passwd), oper)
 		return self._send_request(body)
 
+	def _perform_checked_operation(self, oper, result_name):
+		doc = self._perform_operation(oper)
+		error_code = _get_operation_result(doc, result_name)
+		return (doc, error_code)
+
 	def add_user(self, user):
 		"""Add a user account."""
 		body = """<addUserRequest>
@@ -331,9 +336,7 @@ class UserMaintSession(object):
 					%s
 				</addUserRequest>
 		""" % (user.user_code, user.to_xml())
-		doc = self._perform_operation(body)
-
-		error_code = _get_operation_result(doc, 'addUserResult')
+		doc, error_code = self._perform_checked_operation(body, 'addUserResult')
 		if error_code is not None:
 			raise UserMaintError('failed to add user (code %s)' %\
 					error_code, code = error_code)
@@ -347,9 +350,8 @@ class UserMaintSession(object):
 					</target>
 				</deleteUserRequest>
 		""" % user_code
-		doc = self._perform_operation(body)
-
-		error_code = _get_operation_result(doc, 'deleteUserResult')
+		doc, error_code = self._perform_checked_operation(body,
+				'deleteUserResult')
 		if error_code is not None:
 			raise UserMaintError('failed to delete user (code %s)' %\
 					error_code)
@@ -392,9 +394,8 @@ class UserMaintSession(object):
 			body += '<statisticsInfo/>'
 		body += """</user>
 				</getUserInfoRequest>"""
-		doc = self._perform_operation(body)
-
-		error_code = _get_operation_result(doc, 'getUserInfoResult')
+		doc, error_code = self._perform_checked_operation(body,
+				'getUserInfoResult')
 		if error_code is not None:
 			raise UserMaintError('failed to retrieve user info (code %s)' %\
 					error_code)
@@ -415,9 +416,8 @@ class UserMaintSession(object):
 					</target>
 					%s
 				</setUserInfoRequest>""" % (user.orig_user_code, user.to_xml())
-		doc = self._perform_operation(body)
-
-		error_code = _get_operation_result(doc, 'setUserInfoResult')
+		doc, error_code = self._perform_checked_operation(body,
+				'setUserInfoResult')
 		if error_code is not None:
 			raise UserMaintError('failed to modify user (code %s)' %\
 					error_code)
