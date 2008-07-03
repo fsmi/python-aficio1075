@@ -25,7 +25,25 @@
 from optparse import OptionParser
 from aficio1075 import accounts
 
+def show_acct(acct):
+	perms = []
+	if acct.restrict.grant_copy:
+		perms.append('copy')
+	if acct.restrict.grant_printer:
+		perms.append('print')
+	if acct.restrict.grant_scanner:
+		perms.append('scan')
+	if acct.restrict.grant_storage:
+		perms.append('storage')
+	print '%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
+	print '      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
+			'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
+			acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
+			acct.stats.scan_a3)
+
 def main():
+	valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show' ]
+
 	parser = OptionParser()
 	parser.add_option("--hostname", action = "store", dest = "hostname",
 			help = "Hostname of the Aficio printer")
@@ -39,7 +57,10 @@ def main():
 	if len(args) != 1:
 		parser.error("incorrect number of arguments")
 	mode = args[0]
-	if options.user_code is None:
+	if mode not in valid_modes:
+		parser.error("unknown mode '%s'", mode)
+
+	if mode != 'show' and options.user_code is None:
 		parser.error("Expected option --user-code")
 
 	um = accounts.UserMaintSession(host = options.hostname,
@@ -86,7 +107,15 @@ def main():
 		print "Adding user %s (%u)" % (options.name, options.user_code)
 		acct = accounts.User(options.user_code, options.name, acct_restr)
 		um.add_user(acct)
-
+	elif mode == 'show':
+		# Show account
+		if options.user_code is not None:
+			acct = um.get_user_info(options.user_code)[options.user_code]
+			show_acct(acct)
+		else:
+			accts = um.get_user_info()
+			for acct in accts.values():
+				show_acct(acct)
 
 if __name__ == '__main__':
 	main()
