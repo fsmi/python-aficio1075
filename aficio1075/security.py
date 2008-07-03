@@ -50,4 +50,4 @@ def encode_password(passwd):
 	if len(passwd) > MAX_PW_LEN:
 		raise PasswordError('Password too long; must not exceed %u '
 				'characters' % MAX_PW_LEN)
-	return b64encode(mangle_password(passwd, _encode_char))
+	return b64encode(_mangle_password(passwd, _encode_char))
