@@ -35,6 +35,12 @@ ignored_user_codes = [ 3974, 3975, 2222, 2223, 3378, 1111, 1112, 1113, 1114,
 
 valid_groups = [ 'fsusers', 'newbie' ]
 
+def list_to_dict(attr_name, list):
+	d = {}
+	for e in list:
+		d[getattr(e, attr_name)] = e
+	return d
+
 def main():
 	parser = OptionParser()
 	parser.add_option("--hostname", action = "store", dest = "hostname",
@@ -57,7 +63,8 @@ def main():
 
 	accts_to_disable = []
 
-	for acct in um.get_user_infos():
+	accts = list_to_dict('user_code', um.get_user_infos())
+	for acct in accts.values():
 		if (acct.user_code < user_code_min or \
 				acct.user_code > user_code_max) or \
 					acct.user_code in ignored_user_codes:
