@@ -61,7 +61,7 @@ def _get_operation_result(doc, oper_name):
 def _get_text_node(path, base_node):
 	return xpath.Evaluate('string(%s)' % path, base_node)
 
-class UserMaintException(RuntimeError):
+class UserMaintError(RuntimeError):
 	pass
 
 class UserStatistics(object):
@@ -209,7 +209,7 @@ class User(object):
 
 	def _set_name(self, name):
 		if len(name) > self.MAX_NAME_LEN:
-			raise UserMaintException('user name "%s" too long, max %d ' \
+			raise UserMaintError('user name "%s" too long, max %d ' \
 					'characters' % (name, self.MAX_NAME_LEN))
 		self.__name = name
 	def _get_name(self):
@@ -322,7 +322,7 @@ class UserMaintSession(object):
 
 		error_code = _get_operation_result(doc, 'addUserResult')
 		if error_code is not None:
-			raise UserMaintException('failed to add user (code %s)' %\
+			raise UserMaintError('failed to add user (code %s)' %\
 					error_code)
 		user.notify_flushed()
 
@@ -338,7 +338,7 @@ class UserMaintSession(object):
 
 		error_code = _get_operation_result(doc, 'deleteUserResult')
 		if error_code is not None:
-			raise UserMaintException('failed to delete user (code %s)' %\
+			raise UserMaintError('failed to delete user (code %s)' %\
 					error_code)
 
 	def get_user_info(self, user_code='', req_user_code = True,
@@ -364,7 +364,7 @@ class UserMaintSession(object):
 
 		error_code = _get_operation_result(doc, 'getUserInfoResult')
 		if error_code is not None:
-			raise UserMaintException('failed to retrieve user info (code %s)' %\
+			raise UserMaintError('failed to retrieve user info (code %s)' %\
 					error_code)
 
 		users = {}
@@ -388,6 +388,6 @@ class UserMaintSession(object):
 
 		error_code = _get_operation_result(doc, 'setUserInfoResult')
 		if error_code is not None:
-			raise UserMaintException('failed to modify user (code %s)' %\
+			raise UserMaintError('failed to modify user (code %s)' %\
 					error_code)
 		user.notify_flushed()
