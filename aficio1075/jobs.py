@@ -100,17 +100,17 @@ class JobCancelFailed(RuntimeError):
 class WaitingJobList(JobList):
 	def __init__(self, *args, **kwargs):
 		super(WaitingJobList, self).__init__(*args, **kwargs)
-		self.passw = kwargs.get('passw', None)
+		self.passwd = kwargs.get('passwd', None)
 
 	def cancel_all_jobs(self):
 		for job in self.jobs.values()[:]:
 			job.cancel()
 
 	def cancel_job(self, doc_name):
-		if self.passw is None:
+		if self.passwd is None:
 			raise JobCancelFailed("Missing authentication")
 		u = urllib.urlopen("%s/del_joblist.cgi" % self.base_url,
-				urllib.urlencode([('passwd', self.passw),
+				urllib.urlencode([('passwd', self.passwd),
 						('del', 'L&ouml;schen'),
 						('0', 'ON'), ('id', doc_name)]))
 		raw_html = u.read()
