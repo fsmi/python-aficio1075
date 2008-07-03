@@ -33,6 +33,7 @@ from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
 import security
+import time
 
 STRING_ENCODING = 'Windows-1252'
 
@@ -295,10 +296,13 @@ class UserMaintSession(object):
 	There is no session on the network level: Each request initiates a
 	self-contained XML-RPC request.
 	"""
-	def __init__(self, passwd, host, port = 80):
+	BUSY_CODE = 'systemBusy'
+
+	def __init__(self, passwd, host, port = 80, retry_busy = False):
 		self.passwd = passwd
 		self.host = host
 		self.port = port
+		self.retry_busy = retry_busy
 
 	def _send_request(self, body):
 		headers = {'Content-Type': 'text/xml;charset=us-ascii'}
@@ -323,9 +327,12 @@ class UserMaintSession(object):
 		return self._send_request(body)
 
 	def _perform_checked_operation(self, oper, result_name):
-		doc = self._perform_operation(oper)
-		error_code = _get_operation_result(doc, result_name)
-		return (doc, error_code)
+		while self.retry_busy:
+			doc = self._perform_operation(oper)
+			error_code = _get_operation_result(doc, result_name)
+			if error_code != self.BUSY_CODE:
+				return (doc, error_code)
+			time.sleep(0.2)
 
 	def add_user(self, user):
 		"""Add a user account."""

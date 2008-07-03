@@ -64,7 +64,7 @@ def main():
 		parser.error("Expected option --user-code")
 
 	um = accounts.UserMaintSession(host = options.hostname,
-			passwd = options.passwd)
+			passwd = options.passwd, retry_busy = True)
 
 	# Default restrictions / permissions.
 	acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
