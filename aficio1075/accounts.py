@@ -32,6 +32,7 @@ import socket
 from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
+import security
 
 STRING_ENCODING = 'Windows-1252'
 
@@ -281,8 +282,8 @@ class UserMaintSession(object):
 	There is no session on the network level: Each request initiates a
 	self-contained XML-RPC request.
 	"""
-	def __init__(self, auth_token, host, port = 80):
-		self.auth_token = auth_token
+	def __init__(self, passwd, host, port = 80):
+		self.passwd = passwd
 		self.host = host
 		self.port = port
 
@@ -305,7 +306,7 @@ class UserMaintSession(object):
 				<authorization>%s</authorization>
 			%s
 			</operation>
-		""" % (self.auth_token, oper)
+		""" % (security.encode_password(self.passwd), oper)
 		return self._send_request(body)
 
 	def add_user(self, user):

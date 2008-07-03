@@ -39,8 +39,8 @@ def main():
 	parser = OptionParser()
 	parser.add_option("--hostname", action = "store", dest = "hostname",
 			help = "Hostname of the Aficio printer")
-	parser.add_option("--auth-token", action = "store", dest = "auth_token",
-			help = "Authentikation token for the Aficio printer")
+	parser.add_option("--passwd", action = "store", dest = "passwd",
+			help = "Password for the Aficio printer")
 	(options, args) = parser.parse_args()
 	if len(args) != 0:
 		parser.error("incorrect number of arguments")
@@ -50,7 +50,7 @@ def main():
 		valid_users += grp.getgrnam(valid_group).gr_mem
 
 	um = accounts.UserMaintSession(host = options.hostname,
-			auth_token = options.auth_token)
+			passwd = options.passwd)
 
 	# Create list of accounts that need to be disabled or removed.
 	#
