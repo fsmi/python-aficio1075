@@ -73,7 +73,9 @@ def _get_text_node(path, base_node):
 	return xpath.Evaluate('string(%s)' % path, base_node)
 
 class UserMaintError(RuntimeError):
-	pass
+	def __init__(self, msg, code = None):
+		RuntimeError.__init__(self, msg)
+		self.code = code
 
 class UserStatistics(object):
 	pass
@@ -334,7 +336,7 @@ class UserMaintSession(object):
 		error_code = _get_operation_result(doc, 'addUserResult')
 		if error_code is not None:
 			raise UserMaintError('failed to add user (code %s)' %\
-					error_code)
+					error_code, code = error_code)
 		user.notify_flushed()
 
 	def delete_user(self, user_code):
