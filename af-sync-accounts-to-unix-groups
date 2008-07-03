@@ -57,8 +57,7 @@ def main():
 
 	accts_to_disable = []
 
-	accts = um.get_user_info()
-	for acct in accts.values():
+	for acct in um.get_user_infos():
 		if (acct.user_code < user_code_min or \
 				acct.user_code > user_code_max) or \
 					acct.user_code in ignored_user_codes:

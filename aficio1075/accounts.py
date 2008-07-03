@@ -341,10 +341,29 @@ class UserMaintSession(object):
 			raise UserMaintError('failed to delete user (code %s)' %\
 					error_code)
 
-	def get_user_info(self, user_code='', req_user_code = True,
+	def get_user_info(self, user_code, req_user_code = True,
 			req_user_code_name = True, req_restrict_info = True,
 			req_statistics_info = True):
-		"""Get information about a user account."""
+		"""Get information about a user account.
+		Returns a User instance in case the user was found or else throws a
+		UserMaintError."""
+		return self._get_user_info(user_code, req_user_code, req_user_code_name,
+				req_restrict_info, req_statistics_info)[0]
+
+	def get_user_infos(self, req_user_code = True,
+			req_user_code_name = True, req_restrict_info = True,
+			req_statistics_info = True):
+		"""Request information about all user accounts.
+		Returns a list of User instances. Throws a UserMaintError in case of an
+		error."""
+		return self._get_user_info(req_user_code = req_user_code,
+				req_user_code_name = req_user_code_name,
+				req_restrict_info = req_restrict_info,
+				req_statistics_info = req_statistics_info)
+
+	def _get_user_info(self, user_code='', req_user_code = True,
+			req_user_code_name = True, req_restrict_info = True,
+			req_statistics_info = True):
 		body = """<getUserInfoRequest>
 					<target>
 						<userCode>%s</userCode>
@@ -367,12 +386,11 @@ class UserMaintSession(object):
 			raise UserMaintError('failed to retrieve user info (code %s)' %\
 					error_code)
 
-		users = {}
+		users = []
 		# Iterate over the users.
 		for user_node in xpath.Evaluate(
 				'operationResult/getUserInfoResult/result/user', doc):
-			user = User.from_xml(user_node)
-			users[user.user_code] = user
+			users.append(User.from_xml(user_node))
 		return users
 
 	def set_user_info(self, user):

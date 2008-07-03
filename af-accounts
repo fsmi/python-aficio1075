@@ -72,7 +72,7 @@ def main():
 
 	if mode == 'disable':
 		# Disable account
-		acct = um.get_user_info(options.user_code)[options.user_code]
+		acct = um.get_user_info(options.user_code)
 		if acct.restrict.has_any_permissions():
 			print "Disabling user %s (%u)" % (acct.name, acct.user_code)
 			acct.restrict.revoke_all()
@@ -81,7 +81,7 @@ def main():
 			print "User %s (%u) already disabled" % (acct.name, acct.user_code)
 	elif mode == 'delete':
 		# Delete account
-		acct = um.get_user_info(options.user_code)[options.user_code]
+		acct = um.get_user_info(options.user_code)
 		if acct.stats.is_zero():
 			print "Removing user %s (%u)" % (acct.name, acct.user_code)
 			um.delete_user(acct.user_code)
@@ -90,7 +90,7 @@ def main():
 					acct.name, acct.user_code)
 	elif mode == 'enable':
 		# Enable account
-		acct = um.get_user_info(options.user_code)[options.user_code]
+		acct = um.get_user_info(options.user_code)
 		if not acct.restrict.has_any_permissions():
 			print "Enabling user %s (%u)" % (acct.name, acct.user_code)
 			acct.restrict = acct_restr
@@ -110,11 +110,10 @@ def main():
 	elif mode == 'show':
 		# Show account
 		if options.user_code is not None:
-			acct = um.get_user_info(options.user_code)[options.user_code]
+			acct = um.get_user_info(options.user_code)
 			show_acct(acct)
 		else:
-			accts = um.get_user_info()
-			for acct in accts.values():
+			for acct in um.get_user_infos():
 				show_acct(acct)
 
 if __name__ == '__main__':
