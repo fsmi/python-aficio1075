@@ -24,7 +24,7 @@
 # Depends on aficio.accounts
 
 from optparse import OptionParser
-from aficio import accounts
+from aficio1075 import accounts
 import pwd
 import grp
 
