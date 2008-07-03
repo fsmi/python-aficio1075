@@ -327,10 +327,12 @@ class UserMaintSession(object):
 		return self._send_request(body)
 
 	def _perform_checked_operation(self, oper, result_name):
-		while self.retry_busy:
+		# In case we retry on busy, loop until we get a non-busy error code.
+		# Otherwise just exit.
+		while True:
 			doc = self._perform_operation(oper)
 			error_code = _get_operation_result(doc, result_name)
-			if error_code != self.BUSY_CODE:
+			if not self.retry_busy or error_code != self.BUSY_CODE:
 				return (doc, error_code)
 			time.sleep(0.2)
 
