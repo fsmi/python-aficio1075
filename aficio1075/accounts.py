@@ -49,13 +49,24 @@ def _encode(str, encoding = STRING_ENCODING, error = 'ignore'):
 		return b64encode(codecs.getencoder(encoding)(str, error)[0])
 
 def _get_operation_result(doc, oper_name):
+	operation_node = doc.getElementsByTagName('operationResult')
+	if len(operation_node) == 0:
+		return 'unknown failure'
+	operation_node = operation_node[0]
+
 	success = _get_text_node(
-			'operationResult/%s/isSucceeded' % oper_name, doc) == 'true'
+			'%s/isSucceeded' % oper_name, operation_node) == 'true'
 	if success:
 		return None
 	else:
-		error_code = _get_text_node(
-			'operationResult/%s/errorCode' % oper_name, doc)
+		result_node = operation_node.getElementsByTagName(oper_name)
+		if len(result_node) == 0:
+			result_node = operation_node.getElementsByTagName('serverError')
+			if len(result_node) == 0:
+				return 'unknown failure'
+		result_node = result_node[0]
+
+		error_code = _get_text_node('errorCode', result_node)
 		return error_code
 
 def _get_text_node(path, base_node):
