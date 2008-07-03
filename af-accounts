@@ -42,7 +42,7 @@ def show_acct(acct):
 			acct.stats.scan_a3)
 
 def main():
-	valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show' ]
+	valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
 
 	parser = OptionParser()
 	parser.add_option("--hostname", action = "store", dest = "hostname",
@@ -97,6 +97,12 @@ def main():
 			um.set_user_info(acct)
 		else:
 			print "User %s (%u) already enabled" % (acct.name, acct.user_code)
+	elif mode == 'reset':
+		# Reset the counters for the account by removing and adding it.
+		acct = um.get_user_info(options.user_code)
+		print "Resetting user %s (%u)" % (acct.name, acct.user_code)
+		um.delete_user(acct.user_code)
+		um.add_user(acct)
 	elif mode == 'add':
 		# Add new account
 		if options.name is None:
