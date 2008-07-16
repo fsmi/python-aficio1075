@@ -3,3 +3,8 @@ Accounts:
   avoid the password on the command-line.
 - Replace manual XML string building with XML object-composition. Use
   ElementTree instead of DOM.
+
+Scanrouter:
+* Provide readme in English
+* tray-applet which get's notified of finished scan jobs? (Can we detect which
+  user created the job?)
