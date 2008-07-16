@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # vim:set ft=python ts=4 sw=4 noet:
 
-# aficio/jobs.py -- Adapter for the HTTP / HTML interface to print job control
-#   of Ricoh Aficio 1075
+# aficio1075/jobs.py -- Adapter for the HTTP / HTML interface to print job
+#   control of Ricoh Aficio 1075
 #
 # Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
 #

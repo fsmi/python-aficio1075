@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # vim:set ts=4 sw=4 noet:
 
-# delivery_service_lists.py.py -- classes to read and write the Ricoh Aficio
-#                                 1075 delivery service target lists.
+# aficio1075/delivery_service_lists.py.py -- classes to read and write the
+#   Ricoh Aficio 1075 delivery service target lists.
 #
 # Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
 #

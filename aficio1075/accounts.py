@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # vim:set ft=python ts=4 sw=4 noet:
 
-# aficio/accounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio 1075
-#   concerning account management.
+# aficio1075/accounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio
+#   1075 concerning account management.
 #
 # Copyright (C) 2007 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
 # Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>

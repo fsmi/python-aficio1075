@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # vim:set ts=4 sw=4 noet:
 
-# delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of Ricoh
-#                      Aficio 1075
+# aficio1075/delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of
+#   Ricoh Aficio 1075
 #
 # Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
 #
