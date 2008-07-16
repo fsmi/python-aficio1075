@@ -29,10 +29,10 @@
 import httplib2
 import codecs
 import socket
-from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
-import security
+from aficio1075 import security
+from aficio1075.encoding import encode, decode
 
 
 def _get_text_node(path, node):
@@ -115,8 +115,7 @@ class DeliveryInput(object):
 		else:
 			host_ip_addr = socket.gethostbyname(host)
 
-		encoded_host = \
-			b64encode(codecs.getencoder('windows-1252')(host_ip_addr)[0])
+		encoded_host = encode(host_ip_addr)
 
 		return """
 		      <address>
@@ -165,8 +164,8 @@ class DeliveryInput(object):
 		if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
 			raise DeliveryInputException('Failed to configure delivery service')
 
-		delivery_host_ip_addr = codecs.getdecoder('windows-1252')(
-				b64decode(_get_text_node('//*/address_out/string', doc)))[0]
+		delivery_host_ip_addr = decode(
+				_get_text_node('//*/address_out/string', doc))
 
 		if delivery_host_ip_addr == '0.0.0.0':
 			return None

@@ -29,25 +29,12 @@
 import httplib2
 import codecs
 import socket
-from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
-import security
 import time
+from aficio1075 import security
+from aficio1075.encoding import encode, decode
 
-STRING_ENCODING = 'Windows-1252'
-
-def _decode(str, encoding = STRING_ENCODING):
-	if encoding == 'none' or encoding is None or encoding == '':
-		return str
-	else:
-		return codecs.getdecoder(encoding)(b64decode(str))[0]
-
-def _encode(str, encoding = STRING_ENCODING, error = 'ignore'):
-	if encoding == 'none' or encoding is None or encoding == '':
-		return str
-	else:
-		return b64encode(codecs.getencoder(encoding)(str, error)[0])
 
 def _get_operation_result(doc, oper_name):
 	operation_node = doc.getElementsByTagName('operationResult')
@@ -240,9 +227,9 @@ class User(object):
 		if self.user_code is not None:
 			xml_str += '<userCode>%u</userCode>' % self.user_code
 		if self.name is not None:
-			encoded_name = _encode(self.name, STRING_ENCODING)
+			encoded_name = encode(self.name, DEFAULT_STRING_ENCODING)
 			xml_str += '<userCodeName enc="%s">%s</userCodeName>' % (
-					STRING_ENCODING, encoded_name)
+					DEFAULT_STRING_ENCODING, encoded_name)
 		if self.restrict is not None:
 			xml_str += self.restrict.to_xml()
 		xml_str += '</user>'
@@ -270,7 +257,7 @@ class User(object):
 				if len(code_name_nodes) == 0:
 					name = None
 				else:
-					name = _decode(_get_text_node('.', code_name_nodes[0]),
+					name = decode(_get_text_node('.', code_name_nodes[0]),
 							code_name_nodes[0].getAttribute('enc'))
 
 		# Load sub-data (if available)
