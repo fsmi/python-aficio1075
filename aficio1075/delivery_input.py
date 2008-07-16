@@ -32,6 +32,7 @@ import socket
 from base64 import b64encode, b64decode
 from xml.dom.ext.reader import Sax2
 from xml import xpath
+import security
 
 
 def _get_text_node(path, node):
@@ -78,11 +79,8 @@ class DeliveryInput(object):
 		""" % oper
 		return self._send_request(func_name, body)
 
-	def authenticate(self, auth_token):
-		# Apparently, there's more voodoo to it than the below.
-		#encoded_auth_token = \
-		#	b64encode(codecs.getencoder('windows-1252')(auth_token)[0])
-		encoded_auth_token = auth_token
+	def authenticate(self, passwd):
+		encoded_auth_token = security.encode_password(passwd)
 
 		body = """
 			<di:authenticate
