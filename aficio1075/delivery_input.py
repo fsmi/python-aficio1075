@@ -1,6 +1,5 @@
-#!/usr/bin/python2.5
 # -*- coding: utf-8 -*-
-# vim:set ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 noet:
 
 # aficio1075/delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of
 #   Ricoh Aficio 1075
