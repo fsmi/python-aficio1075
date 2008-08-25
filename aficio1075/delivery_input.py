@@ -31,7 +31,7 @@ import codecs
 import socket
 from xml.dom.ext.reader import Sax2
 from xml import xpath
-from aficio1075 import security
+from aficio1075.security import encode_password
 from aficio1075.encoding import encode, decode
 
 
@@ -80,7 +80,7 @@ class DeliveryInput(object):
 		return self._send_request(func_name, body)
 
 	def authenticate(self, passwd):
-		encoded_auth_token = security.encode_password(passwd)
+		encoded_auth_token = encode_password(passwd)
 
 		body = """
 			<di:authenticate
