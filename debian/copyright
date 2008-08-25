@@ -1,0 +1,15 @@
+This package was debianized by Fabian Knittel
+<fabian.knittel@fsmi.uni-karlsruhe.de> on Mon, 25 Feb 2008 14:12:14 +0200.
+
+It was downloaded from git://fsmi-dev.fsmi.uni-karlsruhe.de/git/python-aficio1075.git
+
+The python modules are
+
+  Copyright (C) 2007-2008 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
+  Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+
+and the Debian packaging is
+
+  Copyright (c) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+
+and everything is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
