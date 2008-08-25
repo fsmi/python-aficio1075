@@ -1,6 +1,5 @@
-#!/usr/bin/python2.5
 # -*- coding: utf-8 -*-
-# vim:set ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 noet:
 
 # aficio1075/delivery_service_lists.py.py -- classes to read and write the
 #   Ricoh Aficio 1075 delivery service target lists.
