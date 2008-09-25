@@ -33,7 +33,7 @@ from xml.dom.ext.reader import Sax2
 from xml import xpath
 import time
 from aficio1075 import security
-from aficio1075.encoding import encode, decode
+from aficio1075.encoding import encode, decode, DEFAULT_STRING_ENCODING
 
 
 def _get_operation_result(doc, oper_name):
