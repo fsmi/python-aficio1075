@@ -20,9 +20,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-# Depends on python2.5
-
-
 import urllib
 from StringIO import StringIO
 import xml.etree.ElementTree as ET
