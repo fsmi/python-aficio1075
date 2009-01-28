@@ -25,15 +25,12 @@
 
 from optparse import OptionParser
 from aficio1075 import accounts
+from ConfigParser import SafeConfigParser
 import pwd
 import grp
 
-user_code_min = 1000
-user_code_max = 4999
-ignored_user_codes = [ 3974, 2664, 3975, 2222, 2223, 3378, 1111, 1112, 1113,
-        1114, 1115, 1116, 1117, 1118, 1119 ]
+CONFIG_PATH = '/etc/af-sync-accounts.conf'
 
-valid_groups = [ 'fsusers', 'newbie' ]
 
 def list_to_dict(attr_name, list):
     d = {}
@@ -41,8 +38,13 @@ def list_to_dict(attr_name, list):
         d[getattr(e, attr_name)] = e
     return d
 
+def comma_string_to_list(s):
+    return [e.strip() for e in s.split(',')]
+
 def main():
     parser = OptionParser()
+    parser.add_option("--config", action = "store", dest = "config_file",
+            help = "Path of configuration file", default = CONFIG_PATH)
     parser.add_option("--hostname", action = "store", dest = "hostname",
             help = "Hostname of the Aficio printer")
     parser.add_option("--passwd", action = "store", dest = "passwd",
@@ -53,10 +55,38 @@ def main():
     if len(args) != 0:
         parser.error("incorrect number of arguments")
 
-    if options.hostname is None:
+    cf = SafeConfigParser()
+    cf.read(options.config_file)
+
+    if options.hostname is not None:
+        cf.set('printer', 'hostname', options.hostname)
+    if options.passwd is not None:
+        cf.set('printer', 'passwd', options.passwd)
+
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'hostname'):
         parser.error("hostname not specified")
-    if options.passwd is None:
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'passwd'):
         parser.error("passwd not specified")
+
+    if not cf.has_section('unix_sync'):
+        parser.error("configuration file misses unix_sync section")
+    if not cf.has_option('unix_sync', 'user_code_min'):
+        parser.error("user_code_min not specified")
+    if not cf.has_option('unix_sync', 'user_code_max'):
+        parser.error("user_code_max not specified")
+    if not cf.has_option('unix_sync', 'valid_groups'):
+        parser.error("valid_groups not specified")
+    else:
+        valid_groups = comma_string_to_list(cf.get('unix_sync', 'valid_groups'))
+        print repr(valid_groups)
+    if not cf.has_option('unix_sync', 'ignored_user_codes'):
+        parser.error("ignored_user_codes not specified")
+    else:
+        ignored_user_codes = [int(user_code.strip()) for user_code in
+                comma_string_to_list(cf.get('unix_sync', 'ignored_user_codes'))]
+        print repr(ignored_user_codes)
 
     if options.simulate:
         print "note: only simulating commands."
@@ -75,8 +105,8 @@ def main():
 
     accts = list_to_dict('user_code', um.get_user_infos())
     for acct in accts.values():
-        if (acct.user_code < user_code_min or \
-                acct.user_code > user_code_max) or \
+        if (acct.user_code < cf.getint('unix_sync', 'user_code_min') or \
+                acct.user_code > cf.getint('unix_sync', 'user_code_max')) or \
                     acct.user_code in ignored_user_codes:
             # Skip
             continue
@@ -118,7 +148,8 @@ def main():
     accts_to_activate = []
 
     for pwentry in pwd.getpwall():
-        if (pwentry.pw_uid < user_code_min or pwentry.pw_uid > user_code_max):
+        if (pwentry.pw_uid < cf.getint('unix_sync', 'user_code_min') or \
+                pwentry.pw_uid > cf.getint('unix_sync', 'user_code_max')):
             # Skip
             continue
 
