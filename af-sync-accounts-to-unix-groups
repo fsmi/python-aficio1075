@@ -29,7 +29,7 @@ from ConfigParser import SafeConfigParser
 import pwd
 import grp
 
-CONFIG_PATH = '/etc/af-sync-accounts.conf'
+CONFIG_PATH = '/etc/aficio1075.conf'
 
 
 def list_to_dict(attr_name, list):

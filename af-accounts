@@ -24,6 +24,10 @@
 
 from optparse import OptionParser
 from aficio1075 import accounts
+from ConfigParser import SafeConfigParser
+
+CONFIG_PATH = '/etc/aficio1075.conf'
+
 
 def show_acct(acct):
     perms = []
@@ -45,6 +49,8 @@ def main():
     valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
 
     parser = OptionParser()
+    parser.add_option("--config", action = "store", dest = "config_file",
+            help = "Path of configuration file", default = CONFIG_PATH)
     parser.add_option("--hostname", action = "store", dest = "hostname",
             help = "Hostname of the Aficio printer")
     parser.add_option("--passwd", action = "store", dest = "passwd",
@@ -56,15 +62,31 @@ def main():
     (options, args) = parser.parse_args()
     if len(args) != 1:
         parser.error("incorrect number of arguments")
+
+    cf = SafeConfigParser()
+    cf.read(options.config_file)
+
+    if options.hostname is not None:
+        cf.set('printer', 'hostname', options.hostname)
+    if options.passwd is not None:
+        cf.set('printer', 'passwd', options.passwd)
+
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'hostname'):
+        parser.error("hostname not specified")
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'passwd'):
+        parser.error("passwd not specified")
+
     mode = args[0]
     if mode not in valid_modes:
-        parser.error("unknown mode '%s'", mode)
+        parser.error("unknown mode '%s'" % mode)
 
     if mode != 'show' and options.user_code is None:
         parser.error("Expected option --user-code")
 
-    um = accounts.UserMaintSession(host = options.hostname,
-            passwd = options.passwd, retry_busy = True)
+    um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
+            passwd = cf.get('printer', 'passwd'), retry_busy = True)
 
     # Default restrictions / permissions.
     acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
@@ -108,7 +130,7 @@ def main():
         if options.name is None:
             parser.error("Expected option --user-name")
         if len(options.name) > accounts.User.MAX_NAME_LEN:
-            parser.error("User name must not exceed %d characters",
+            parser.error("User name must not exceed %d characters" %
                     accounts.User.MAX_NAME_LEN)
         print "Adding user %s (%u)" % (options.name, options.user_code)
         acct = accounts.User(options.user_code, options.name, acct_restr)
