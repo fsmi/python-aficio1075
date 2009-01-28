@@ -53,6 +53,14 @@ def main():
     if len(args) != 0:
         parser.error("incorrect number of arguments")
 
+    if options.hostname is None:
+        parser.error("hostname not specified")
+    if options.passwd is None:
+        parser.error("passwd not specified")
+
+    if options.simulate:
+        print "note: only simulating commands."
+
     valid_users = []
     for valid_group in valid_groups:
         valid_users += grp.getgrnam(valid_group).gr_mem
