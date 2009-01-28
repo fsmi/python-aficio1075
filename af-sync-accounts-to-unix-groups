@@ -47,6 +47,8 @@ def main():
 			help = "Hostname of the Aficio printer")
 	parser.add_option("--passwd", action = "store", dest = "passwd",
 			help = "Password for the Aficio printer")
+	parser.add_option("--simulate", action = "store_true",
+			dest = "simulate", help = "Only simulate the actions")
 	(options, args) = parser.parse_args()
 	if len(args) != 0:
 		parser.error("incorrect number of arguments")
@@ -90,14 +92,16 @@ def main():
 		if acct.stats.is_zero():
 			print "Removing user %s (%u)" % (acct.name, acct.user_code)
 			# Counters are zero, remove the account.
-			um.delete_user(acct.user_code)
+			if not options.simulate:
+				um.delete_user(acct.user_code)
 		else:
 			# Counters are non-zero, wait for it to be accounted for.
 			if acct.restrict.has_any_permissions():
 				# Not disabled yet, so disable the account.
 				print "Disabling user %s (%u)" % (acct.name, acct.user_code)
 				acct.restrict.revoke_all()
-				um.set_user_info(acct)
+				if not options.simulate:
+					um.set_user_info(acct)
 
 	# Create list of accounts that need to be created or re-activated.
 	#
@@ -140,13 +144,15 @@ def main():
 			name = name[0:accounts.User.MAX_NAME_LEN - 1]
 		print "Adding user %s (%u)" % (name, pwentry.pw_uid)
 		acct = accounts.User(pwentry.pw_uid, name, acct_restr)
-		um.add_user(acct)
+		if not options.simulate:
+			um.add_user(acct)
 
 	# Activate existing accounts.
 	for acct in accts_to_activate:
 		print "Activating user %s (%u)" % (acct.name, acct.user_code)
 		acct.restrict = acct_restr
-		um.set_user_info(acct)
+		if not options.simulate:
+			um.set_user_info(acct)
 
 if __name__ == '__main__':
 	main()
