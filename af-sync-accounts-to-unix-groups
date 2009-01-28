@@ -30,8 +30,8 @@ import grp
 
 user_code_min = 1000
 user_code_max = 4999
-ignored_user_codes = [ 3974, 3975, 2222, 2223, 3378, 1111, 1112, 1113, 1114,
-		1115, 1116, 1117, 1118, 1119 ]
+ignored_user_codes = [ 3974, 2664, 3975, 2222, 2223, 3378, 1111, 1112, 1113,
+		1114, 1115, 1116, 1117, 1118, 1119 ]
 
 valid_groups = [ 'fsusers', 'newbie' ]
 
