@@ -1,5 +1,5 @@
 Accounts:
-- add config file feature to af-sync-accounts-to-unix-groups and af-accounts to
-  avoid the password on the command-line.
+- add config file feature to af-accounts to avoid the password on the
+  command-line.
 - Replace manual XML string building with XML object-composition. Use
   ElementTree instead of DOM.

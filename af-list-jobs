@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 et:
 
 # af-list-jobs -- List completed and finished print jobs for the Ricoh Aficio
 #   1075
@@ -27,26 +27,26 @@ from optparse import OptionParser
 from aficio1075 import jobs
 
 def display_list(joblist):
-	if joblist.jobs is None:
-		return
-	for job in sorted(joblist.jobs, lambda x, y: -cmp(x.id, y.id)):
-		print '%s, %s, %s, %s, %s, %s' % (job.id, job.user_name, job.doc_name,
-				job.status, job.pages, job.size)
+    if joblist.jobs is None:
+        return
+    for job in sorted(joblist.jobs, lambda x, y: -cmp(x.id, y.id)):
+        print '%s, %s, %s, %s, %s, %s' % (job.id, job.user_name, job.doc_name,
+                job.status, job.pages, job.size)
 
 def main():
-	parser = OptionParser()
-	parser.add_option("--hostname", action = "store", dest = "hostname",
-			help = "Hostname of the Aficio printer")
-	(options, args) = parser.parse_args()
-	if len(args) != 0:
-		parser.error("incorrect number of arguments")
+    parser = OptionParser()
+    parser.add_option("--hostname", action = "store", dest = "hostname",
+            help = "Hostname of the Aficio printer")
+    (options, args) = parser.parse_args()
+    if len(args) != 0:
+        parser.error("incorrect number of arguments")
 
-	wjl = jobs.WaitingJobList(host = options.hostname)
-	print 'Active jobs:'
-	display_list(wjl)
-	jl = jobs.JobList(host = options.hostname)
-	print 'Finished jobs:'
-	display_list(jl)
+    wjl = jobs.WaitingJobList(host = options.hostname)
+    print 'Active jobs:'
+    display_list(wjl)
+    jl = jobs.JobList(host = options.hostname)
+    print 'Finished jobs:'
+    display_list(jl)
 
 if __name__ == '__main__':
-	main()
+    main()

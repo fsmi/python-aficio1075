@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 et:
 
 # af-accounts -- Command-line tool to manage accounts on a Ricoh Aficio 1075.
 #
@@ -24,103 +24,125 @@
 
 from optparse import OptionParser
 from aficio1075 import accounts
+from ConfigParser import SafeConfigParser
+
+CONFIG_PATH = '/etc/aficio1075.conf'
+
 
 def show_acct(acct):
-	perms = []
-	if acct.restrict.grant_copy:
-		perms.append('copy')
-	if acct.restrict.grant_printer:
-		perms.append('print')
-	if acct.restrict.grant_scanner:
-		perms.append('scan')
-	if acct.restrict.grant_storage:
-		perms.append('storage')
-	print '%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
-	print '      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
-			'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
-			acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
-			acct.stats.scan_a3)
+    perms = []
+    if acct.restrict.grant_copy:
+        perms.append('copy')
+    if acct.restrict.grant_printer:
+        perms.append('print')
+    if acct.restrict.grant_scanner:
+        perms.append('scan')
+    if acct.restrict.grant_storage:
+        perms.append('storage')
+    print '%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
+    print '      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
+            'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
+            acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
+            acct.stats.scan_a3)
 
 def main():
-	valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
+    valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
 
-	parser = OptionParser()
-	parser.add_option("--hostname", action = "store", dest = "hostname",
-			help = "Hostname of the Aficio printer")
-	parser.add_option("--passwd", action = "store", dest = "passwd",
-			help = "Password for the Aficio printer")
-	parser.add_option("--user-code", action = "store", type = "int",
-			dest = "user_code", help = "The user code")
-	parser.add_option("--user-name", action = "store", dest = "name",
-			help = "The user's name")
-	(options, args) = parser.parse_args()
-	if len(args) != 1:
-		parser.error("incorrect number of arguments")
-	mode = args[0]
-	if mode not in valid_modes:
-		parser.error("unknown mode '%s'", mode)
+    parser = OptionParser()
+    parser.add_option("--config", action = "store", dest = "config_file",
+            help = "Path of configuration file", default = CONFIG_PATH)
+    parser.add_option("--hostname", action = "store", dest = "hostname",
+            help = "Hostname of the Aficio printer")
+    parser.add_option("--passwd", action = "store", dest = "passwd",
+            help = "Password for the Aficio printer")
+    parser.add_option("--user-code", action = "store", type = "int",
+            dest = "user_code", help = "The user code")
+    parser.add_option("--user-name", action = "store", dest = "name",
+            help = "The user's name")
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        parser.error("incorrect number of arguments")
 
-	if mode != 'show' and options.user_code is None:
-		parser.error("Expected option --user-code")
+    cf = SafeConfigParser()
+    cf.read(options.config_file)
 
-	um = accounts.UserMaintSession(host = options.hostname,
-			passwd = options.passwd, retry_busy = True)
+    if options.hostname is not None:
+        cf.set('printer', 'hostname', options.hostname)
+    if options.passwd is not None:
+        cf.set('printer', 'passwd', options.passwd)
 
-	# Default restrictions / permissions.
-	acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
-			grant_scanner = True)
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'hostname'):
+        parser.error("hostname not specified")
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'passwd'):
+        parser.error("passwd not specified")
 
-	if mode == 'disable':
-		# Disable account
-		acct = um.get_user_info(options.user_code)
-		if acct.restrict.has_any_permissions():
-			print "Disabling user %s (%u)" % (acct.name, acct.user_code)
-			acct.restrict.revoke_all()
-			um.set_user_info(acct)
-		else:
-			print "User %s (%u) already disabled" % (acct.name, acct.user_code)
-	elif mode == 'delete':
-		# Delete account
-		acct = um.get_user_info(options.user_code)
-		if acct.stats.is_zero():
-			print "Removing user %s (%u)" % (acct.name, acct.user_code)
-			um.delete_user(acct.user_code)
-		else:
-			print "User %s (%u) has non-zero counters. Cannot delete." % (
-					acct.name, acct.user_code)
-	elif mode == 'enable':
-		# Enable account
-		acct = um.get_user_info(options.user_code)
-		if not acct.restrict.has_any_permissions():
-			print "Enabling user %s (%u)" % (acct.name, acct.user_code)
-			acct.restrict = acct_restr
-			um.set_user_info(acct)
-		else:
-			print "User %s (%u) already enabled" % (acct.name, acct.user_code)
-	elif mode == 'reset':
-		# Reset the counters for the account by removing and adding it.
-		acct = um.get_user_info(options.user_code)
-		print "Resetting user %s (%u)" % (acct.name, acct.user_code)
-		um.delete_user(acct.user_code)
-		um.add_user(acct)
-	elif mode == 'add':
-		# Add new account
-		if options.name is None:
-			parser.error("Expected option --user-name")
-		if len(options.name) > accounts.User.MAX_NAME_LEN:
-			parser.error("User name must not exceed %d characters",
-					accounts.User.MAX_NAME_LEN)
-		print "Adding user %s (%u)" % (options.name, options.user_code)
-		acct = accounts.User(options.user_code, options.name, acct_restr)
-		um.add_user(acct)
-	elif mode == 'show':
-		# Show account
-		if options.user_code is not None:
-			acct = um.get_user_info(options.user_code)
-			show_acct(acct)
-		else:
-			for acct in um.get_user_infos():
-				show_acct(acct)
+    mode = args[0]
+    if mode not in valid_modes:
+        parser.error("unknown mode '%s'" % mode)
+
+    if mode != 'show' and options.user_code is None:
+        parser.error("Expected option --user-code")
+
+    um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
+            passwd = cf.get('printer', 'passwd'), retry_busy = True)
+
+    # Default restrictions / permissions.
+    acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
+            grant_scanner = True)
+
+    if mode == 'disable':
+        # Disable account
+        acct = um.get_user_info(options.user_code)
+        if acct.restrict.has_any_permissions():
+            print "Disabling user %s (%u)" % (acct.name, acct.user_code)
+            acct.restrict.revoke_all()
+            um.set_user_info(acct)
+        else:
+            print "User %s (%u) already disabled" % (acct.name, acct.user_code)
+    elif mode == 'delete':
+        # Delete account
+        acct = um.get_user_info(options.user_code)
+        if acct.stats.is_zero():
+            print "Removing user %s (%u)" % (acct.name, acct.user_code)
+            um.delete_user(acct.user_code)
+        else:
+            print "User %s (%u) has non-zero counters. Cannot delete." % (
+                    acct.name, acct.user_code)
+    elif mode == 'enable':
+        # Enable account
+        acct = um.get_user_info(options.user_code)
+        if not acct.restrict.has_any_permissions():
+            print "Enabling user %s (%u)" % (acct.name, acct.user_code)
+            acct.restrict = acct_restr
+            um.set_user_info(acct)
+        else:
+            print "User %s (%u) already enabled" % (acct.name, acct.user_code)
+    elif mode == 'reset':
+        # Reset the counters for the account by removing and adding it.
+        acct = um.get_user_info(options.user_code)
+        print "Resetting user %s (%u)" % (acct.name, acct.user_code)
+        um.delete_user(acct.user_code)
+        um.add_user(acct)
+    elif mode == 'add':
+        # Add new account
+        if options.name is None:
+            parser.error("Expected option --user-name")
+        if len(options.name) > accounts.User.MAX_NAME_LEN:
+            parser.error("User name must not exceed %d characters" %
+                    accounts.User.MAX_NAME_LEN)
+        print "Adding user %s (%u)" % (options.name, options.user_code)
+        acct = accounts.User(options.user_code, options.name, acct_restr)
+        um.add_user(acct)
+    elif mode == 'show':
+        # Show account
+        if options.user_code is not None:
+            acct = um.get_user_info(options.user_code)
+            show_acct(acct)
+        else:
+            for acct in um.get_user_infos():
+                show_acct(acct)
 
 if __name__ == '__main__':
-	main()
+    main()
