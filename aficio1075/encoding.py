@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 et:
 
 # aficio1075/encoding.py -- Provides common encoding and decoding mechanisms
 #   needed for communication with Ricoh Aficio 1075 printers.
@@ -26,13 +26,13 @@ import codecs
 DEFAULT_STRING_ENCODING = 'Windows-1252'
 
 def decode(str, encoding = DEFAULT_STRING_ENCODING):
-	if encoding == 'none' or encoding is None or encoding == '':
-		return str
-	else:
-		return codecs.getdecoder(encoding)(b64decode(str))[0]
+    if encoding == 'none' or encoding is None or encoding == '':
+        return str
+    else:
+        return codecs.getdecoder(encoding)(b64decode(str))[0]
 
 def encode(str, encoding = DEFAULT_STRING_ENCODING, error = 'ignore'):
-	if encoding == 'none' or encoding is None or encoding == '':
-		return str
-	else:
-		return b64encode(codecs.getencoder(encoding)(str, error)[0])
+    if encoding == 'none' or encoding is None or encoding == '':
+        return str
+    else:
+        return b64encode(codecs.getencoder(encoding)(str, error)[0])

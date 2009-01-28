@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 noet:
+# vim:set ft=python ts=4 sw=4 et:
 
 # af-sync-accounts-to-unix-groups -- Synchronise the list of printer accounts
 #  with the list of unix users and their membership in unix groups.
@@ -31,128 +31,128 @@ import grp
 user_code_min = 1000
 user_code_max = 4999
 ignored_user_codes = [ 3974, 2664, 3975, 2222, 2223, 3378, 1111, 1112, 1113,
-		1114, 1115, 1116, 1117, 1118, 1119 ]
+        1114, 1115, 1116, 1117, 1118, 1119 ]
 
 valid_groups = [ 'fsusers', 'newbie' ]
 
 def list_to_dict(attr_name, list):
-	d = {}
-	for e in list:
-		d[getattr(e, attr_name)] = e
-	return d
+    d = {}
+    for e in list:
+        d[getattr(e, attr_name)] = e
+    return d
 
 def main():
-	parser = OptionParser()
-	parser.add_option("--hostname", action = "store", dest = "hostname",
-			help = "Hostname of the Aficio printer")
-	parser.add_option("--passwd", action = "store", dest = "passwd",
-			help = "Password for the Aficio printer")
-	parser.add_option("--simulate", action = "store_true",
-			dest = "simulate", help = "Only simulate the actions")
-	(options, args) = parser.parse_args()
-	if len(args) != 0:
-		parser.error("incorrect number of arguments")
+    parser = OptionParser()
+    parser.add_option("--hostname", action = "store", dest = "hostname",
+            help = "Hostname of the Aficio printer")
+    parser.add_option("--passwd", action = "store", dest = "passwd",
+            help = "Password for the Aficio printer")
+    parser.add_option("--simulate", action = "store_true",
+            dest = "simulate", help = "Only simulate the actions")
+    (options, args) = parser.parse_args()
+    if len(args) != 0:
+        parser.error("incorrect number of arguments")
 
-	valid_users = []
-	for valid_group in valid_groups:
-		valid_users += grp.getgrnam(valid_group).gr_mem
+    valid_users = []
+    for valid_group in valid_groups:
+        valid_users += grp.getgrnam(valid_group).gr_mem
 
-	um = accounts.UserMaintSession(host = options.hostname,
-			passwd = options.passwd)
+    um = accounts.UserMaintSession(host = options.hostname,
+            passwd = options.passwd)
 
-	# Create list of accounts that need to be disabled or removed.
-	#
+    # Create list of accounts that need to be disabled or removed.
+    #
 
-	accts_to_disable = []
+    accts_to_disable = []
 
-	accts = list_to_dict('user_code', um.get_user_infos())
-	for acct in accts.values():
-		if (acct.user_code < user_code_min or \
-				acct.user_code > user_code_max) or \
-					acct.user_code in ignored_user_codes:
-			# Skip
-			continue
+    accts = list_to_dict('user_code', um.get_user_infos())
+    for acct in accts.values():
+        if (acct.user_code < user_code_min or \
+                acct.user_code > user_code_max) or \
+                    acct.user_code in ignored_user_codes:
+            # Skip
+            continue
 
-		# Does the user code have a matching UNIX account?
-		try:
-			pwentry = pwd.getpwuid(acct.user_code)
-		except KeyError:
-			accts_to_disable.append(acct)
-			continue
+        # Does the user code have a matching UNIX account?
+        try:
+            pwentry = pwd.getpwuid(acct.user_code)
+        except KeyError:
+            accts_to_disable.append(acct)
+            continue
 
-		# Is the account a member of one of the relevant groups?
-		if pwentry.pw_name not in valid_users:
-			accts_to_disable.append(acct)
-			continue
+        # Is the account a member of one of the relevant groups?
+        if pwentry.pw_name not in valid_users:
+            accts_to_disable.append(acct)
+            continue
 
-	# Disable or remove the accounts.
-	#
+    # Disable or remove the accounts.
+    #
 
-	for acct in accts_to_disable:
-		if acct.stats.is_zero():
-			print "Removing user %s (%u)" % (acct.name, acct.user_code)
-			# Counters are zero, remove the account.
-			if not options.simulate:
-				um.delete_user(acct.user_code)
-		else:
-			# Counters are non-zero, wait for it to be accounted for.
-			if acct.restrict.has_any_permissions():
-				# Not disabled yet, so disable the account.
-				print "Disabling user %s (%u)" % (acct.name, acct.user_code)
-				acct.restrict.revoke_all()
-				if not options.simulate:
-					um.set_user_info(acct)
+    for acct in accts_to_disable:
+        if acct.stats.is_zero():
+            print "Removing user %s (%u)" % (acct.name, acct.user_code)
+            # Counters are zero, remove the account.
+            if not options.simulate:
+                um.delete_user(acct.user_code)
+        else:
+            # Counters are non-zero, wait for it to be accounted for.
+            if acct.restrict.has_any_permissions():
+                # Not disabled yet, so disable the account.
+                print "Disabling user %s (%u)" % (acct.name, acct.user_code)
+                acct.restrict.revoke_all()
+                if not options.simulate:
+                    um.set_user_info(acct)
 
-	# Create list of accounts that need to be created or re-activated.
-	#
+    # Create list of accounts that need to be created or re-activated.
+    #
 
-	users_to_add = []
-	accts_to_activate = []
+    users_to_add = []
+    accts_to_activate = []
 
-	for pwentry in pwd.getpwall():
-		if (pwentry.pw_uid < user_code_min or pwentry.pw_uid > user_code_max):
-			# Skip
-			continue
+    for pwentry in pwd.getpwall():
+        if (pwentry.pw_uid < user_code_min or pwentry.pw_uid > user_code_max):
+            # Skip
+            continue
 
-		if pwentry.pw_name not in valid_users:
-			# User is not member of the relevant groups: Skip.
-			continue
+        if pwentry.pw_name not in valid_users:
+            # User is not member of the relevant groups: Skip.
+            continue
 
-		if pwentry.pw_uid not in accts:
-			# User has no account yet.
-			users_to_add.append(pwentry)
-			continue
+        if pwentry.pw_uid not in accts:
+            # User has no account yet.
+            users_to_add.append(pwentry)
+            continue
 
-		acct = accts[pwentry.pw_uid]
-		if not acct.restrict.has_any_permissions():
-			# User's account is disabled.
-			accts_to_activate.append(acct)
-			continue
+        acct = accts[pwentry.pw_uid]
+        if not acct.restrict.has_any_permissions():
+            # User's account is disabled.
+            accts_to_activate.append(acct)
+            continue
 
 
-	# Create and activate accounts.
-	#
+    # Create and activate accounts.
+    #
 
-	# Default restrictions / permissions.
-	acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
-			grant_scanner = True)
+    # Default restrictions / permissions.
+    acct_restr = accounts.UserRestrict(grant_copy = True, grant_printer = True,
+            grant_scanner = True)
 
-	# Create new accounts.
-	for pwentry in users_to_add:
-		name = unicode(pwentry.pw_gecos, 'utf-8')
-		if len(name) > accounts.User.MAX_NAME_LEN:
-			name = name[0:accounts.User.MAX_NAME_LEN - 1]
-		print "Adding user %s (%u)" % (name, pwentry.pw_uid)
-		acct = accounts.User(pwentry.pw_uid, name, acct_restr)
-		if not options.simulate:
-			um.add_user(acct)
+    # Create new accounts.
+    for pwentry in users_to_add:
+        name = unicode(pwentry.pw_gecos, 'utf-8')
+        if len(name) > accounts.User.MAX_NAME_LEN:
+            name = name[0:accounts.User.MAX_NAME_LEN - 1]
+        print "Adding user %s (%u)" % (name, pwentry.pw_uid)
+        acct = accounts.User(pwentry.pw_uid, name, acct_restr)
+        if not options.simulate:
+            um.add_user(acct)
 
-	# Activate existing accounts.
-	for acct in accts_to_activate:
-		print "Activating user %s (%u)" % (acct.name, acct.user_code)
-		acct.restrict = acct_restr
-		if not options.simulate:
-			um.set_user_info(acct)
+    # Activate existing accounts.
+    for acct in accts_to_activate:
+        print "Activating user %s (%u)" % (acct.name, acct.user_code)
+        acct.restrict = acct_restr
+        if not options.simulate:
+            um.set_user_info(acct)
 
 if __name__ == '__main__':
-	main()
+    main()
