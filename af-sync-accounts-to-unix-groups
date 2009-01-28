@@ -80,13 +80,11 @@ def main():
         parser.error("valid_groups not specified")
     else:
         valid_groups = comma_string_to_list(cf.get('unix_sync', 'valid_groups'))
-        print repr(valid_groups)
     if not cf.has_option('unix_sync', 'ignored_user_codes'):
         parser.error("ignored_user_codes not specified")
     else:
         ignored_user_codes = [int(user_code.strip()) for user_code in
                 comma_string_to_list(cf.get('unix_sync', 'ignored_user_codes'))]
-        print repr(ignored_user_codes)
 
     if options.simulate:
         print "note: only simulating commands."
@@ -95,8 +93,8 @@ def main():
     for valid_group in valid_groups:
         valid_users += grp.getgrnam(valid_group).gr_mem
 
-    um = accounts.UserMaintSession(host = options.hostname,
-            passwd = options.passwd)
+    um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
+            passwd = cf.get('printer', 'passwd'))
 
     # Create list of accounts that need to be disabled or removed.
     #
