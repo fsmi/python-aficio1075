@@ -3,15 +3,14 @@ Section: python
 Priority: extra
 Maintainer: Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
 Build-Depends: debhelper (>= 5.0.38), python-support (>= 0.5.3)
-Standards-Version: 3.7.2
-XS-Python-Version: >= 2.4
+Standards-Version: 3.8.0
 
 Package: python-aficio1075
 Architecture: all
 Depends: python-httplib2, python-xml, ${python:Depends}
 Provides: ${python:Provides}
-Description: Provides python wrappers around RICOH Aficio 1075 functions
- The python modules in this package provide access to various network features
+Description: Provides Python wrappers around RICOH Aficio 1075 functions
+ The Python modules in this package provide access to various network features
  and file formats provided and used by the RICOH Aficio 1075 printer / scanner.
  .
    accounts - Account management

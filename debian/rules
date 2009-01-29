@@ -17,31 +17,13 @@
 export DH_OPTIONS
 
 
-
-configure: configure-stamp
-configure-stamp:
-	dh_testdir
-	# Add here commands to configure the package.
-
-	touch configure-stamp
-
-
 #Architecture
 build: build-indep
-
-build-indep: build-indep-stamp
-build-indep-stamp: configure-stamp
-
-	# Add here commands to compile the indep part of the package.
-	touch $@
+build-indep:
 
 clean:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp #CONFIGURE-STAMP#
-
-	# Add here commands to clean up after the build process.
-
 	dh_clean
 
 install: install-indep
@@ -50,7 +32,6 @@ install-indep:
 	dh_testroot
 	dh_clean -k -i
 	dh_installdirs -i
-
 	dh_install -i
 
 # Must not depend on anything. This is to be called by
@@ -77,5 +58,7 @@ binary-common:
 binary-indep: build-indep install-indep
 	$(MAKE) -f debian/rules DH_OPTIONS=-i binary-common
 
-binary: binary-indep
+binary-arch:
+
+binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary install install-indep configure
