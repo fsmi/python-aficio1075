@@ -1,0 +1,3 @@
+af-accounts usr/sbin/
+af-list-jobs usr/sbin/
+af-sync-accounts usr/sbin/

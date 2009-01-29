@@ -12,10 +12,21 @@ Depends: python-httplib2, python-xml, ${python:Depends}
 Description: Provides python wrappers around RICOH Aficio 1075 functions
  The python modules in this package provide access to various network features
  and file formats provided and used by the RICOH Aficio 1075 printer / scanner.
-
+ .
    accounts - Account management
    jobs - Print job management
    delivery_input - Scan delivery network configuration
    delivery_service_lists - Scan delivery service target lists
-
 XB-Python-Version: ${python:Versions}
+
+Package: aficio1075-tools
+Architecture: all
+Depends: python-aficio1075, ${python:Depends}
+Description: Provides command-line tools to manage RICOH Aficio 1075 printers
+ The tools included in this package allow the management and analysis of
+ some aspects of the RICOH Aficio 1075 printers.
+ .
+ Currently, the following tools are included:
+   af-accounts - Account management
+   af-list-jobs - Print job listing
+   af-sync-accounts - Sync Unix users with the account list
