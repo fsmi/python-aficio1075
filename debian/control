@@ -2,13 +2,14 @@ Source: python-aficio1075
 Section: python
 Priority: extra
 Maintainer: Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
-Build-Depends: debhelper (>= 5.0.38), python-central (>= 0.5.6)
+Build-Depends: debhelper (>= 5.0.38), python-support (>= 0.5.3)
 Standards-Version: 3.7.2
 XS-Python-Version: >= 2.4
 
 Package: python-aficio1075
 Architecture: all
 Depends: python-httplib2, python-xml, ${python:Depends}
+Provides: ${python:Provides}
 Description: Provides python wrappers around RICOH Aficio 1075 functions
  The python modules in this package provide access to various network features
  and file formats provided and used by the RICOH Aficio 1075 printer / scanner.
@@ -17,7 +18,6 @@ Description: Provides python wrappers around RICOH Aficio 1075 functions
    jobs - Print job management
    delivery_input - Scan delivery network configuration
    delivery_service_lists - Scan delivery service target lists
-XB-Python-Version: ${python:Versions}
 
 Package: aficio1075-tools
 Architecture: all
