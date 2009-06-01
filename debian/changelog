@@ -1,3 +1,10 @@
+python-aficio1075 (0.2-1) fsmi-etch; urgency=low
+
+  * New upstream release:
+   - Force all script output to UTF-8.
+
+ -- Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>  Mon, 01 Jun 2009 14:54:32 +0200
+
 python-aficio1075 (0.1-3) fsmi-etch; urgency=low
 
   * Install python-aficio1075 module in the correct place.
