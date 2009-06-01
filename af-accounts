@@ -25,6 +25,11 @@
 from optparse import OptionParser
 from aficio1075 import accounts
 from ConfigParser import SafeConfigParser
+import sys
+import codecs
+
+sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
+sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
 CONFIG_PATH = '/etc/aficio1075.conf'
 
