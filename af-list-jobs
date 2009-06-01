@@ -25,6 +25,12 @@
 
 from optparse import OptionParser
 from aficio1075 import jobs
+import sys
+import codecs
+
+sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
+sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
+
 
 def display_list(joblist):
     if joblist.jobs is None:
