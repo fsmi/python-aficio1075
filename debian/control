@@ -7,7 +7,7 @@ Standards-Version: 3.8.0
 
 Package: python-aficio1075
 Architecture: all
-Depends: python-httplib2, python-xml, ${python:Depends}
+Depends: python-httplib2, python-xml, python-utidylib, ${python:Depends}
 Provides: ${python:Provides}
 Description: Provides Python wrappers around RICOH Aficio 1075 functions
  The Python modules in this package provide access to various network features
