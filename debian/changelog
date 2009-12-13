@@ -1,3 +1,9 @@
+python-aficio1075 (0.2-3) fsmi-lenny; urgency=low
+
+  * Compile for Debian Lenny.
+
+ -- Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>  Sun, 13 Dec 2009 14:30:38 +0100
+
 python-aficio1075 (0.2-2) fsmi-lenny; urgency=low
 
   * Depend on python-utidylib for jobs.py.
