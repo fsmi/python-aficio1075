@@ -1,7 +1,7 @@
 Source: python-aficio1075
 Section: python
 Priority: extra
-Maintainer: Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+Maintainer: Fabian Knittel <fabian.knittel@avona.com>
 Uploaders: Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
 Build-Depends: debhelper (>= 5.0.38), python-support (>= 0.5.3)
 Standards-Version: 3.8.0

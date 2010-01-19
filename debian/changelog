@@ -1,3 +1,11 @@
+python-aficio1075 (0.3-1) fsmi-lenny; urgency=low
+
+  * New upstream release:
+    - Fix typo in aficio1075.delivery_input module.
+  * Update my mainter email-address.
+
+ -- Fabian Knittel <fabian.knittel@avona.com>  Tue, 19 Jan 2010 15:31:43 +0100
+
 python-aficio1075 (0.2-3) fsmi-lenny; urgency=low
 
   * Compile for Debian Lenny.
