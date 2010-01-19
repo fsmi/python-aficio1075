@@ -89,7 +89,7 @@ class DeliveryInput(object):
                 <string>%s</string>
               </password>
             </di:authenticate>
-        """ % auth_token
+        """ % encoded_auth_token
         doc = self._perform_operation('authenticate', body)
 
         if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
