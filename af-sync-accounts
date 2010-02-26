@@ -47,6 +47,16 @@ def list_to_dict(attr_name, list):
 def comma_string_to_list(s):
     return [e.strip() for e in s.split(',')]
 
+def region_to_int_pair(s):
+    start, end = s.split('-')
+    return (int(start.strip()), int(end.strip()))
+
+def user_code_within_regions(code, regions):
+    for region in regions:
+        if code >= region[0] and code <= region[1]:
+            return True
+    return False
+
 def main():
     parser = OptionParser()
     parser.add_option("--config", action = "store", dest = "config_file",
@@ -78,19 +88,15 @@ def main():
 
     if not cf.has_section('unix_sync'):
         parser.error("configuration file misses unix_sync section")
-    if not cf.has_option('unix_sync', 'user_code_min'):
-        parser.error("user_code_min not specified")
-    if not cf.has_option('unix_sync', 'user_code_max'):
-        parser.error("user_code_max not specified")
+    if not cf.has_option('unix_sync', 'user_code_regions'):
+        parser.error("user_code_regions not specified")
+    else:
+        user_code_regions = [region_to_int_pair(region) for region in
+                comma_string_to_list(cf.get('unix_sync', 'user_code_regions'))]
     if not cf.has_option('unix_sync', 'valid_groups'):
         parser.error("valid_groups not specified")
     else:
         valid_groups = comma_string_to_list(cf.get('unix_sync', 'valid_groups'))
-    if not cf.has_option('unix_sync', 'ignored_user_codes'):
-        parser.error("ignored_user_codes not specified")
-    else:
-        ignored_user_codes = [int(user_code.strip()) for user_code in
-                comma_string_to_list(cf.get('unix_sync', 'ignored_user_codes'))]
 
     if options.simulate:
         print "note: only simulating commands."
@@ -109,9 +115,7 @@ def main():
 
     accts = list_to_dict('user_code', um.get_user_infos())
     for acct in accts.values():
-        if (acct.user_code < cf.getint('unix_sync', 'user_code_min') or \
-                acct.user_code > cf.getint('unix_sync', 'user_code_max')) or \
-                    acct.user_code in ignored_user_codes:
+        if not user_code_within_regions(acct.user_code, user_code_regions):
             # Skip
             continue
 
@@ -152,8 +156,7 @@ def main():
     accts_to_activate = []
 
     for pwentry in pwd.getpwall():
-        if (pwentry.pw_uid < cf.getint('unix_sync', 'user_code_min') or \
-                pwentry.pw_uid > cf.getint('unix_sync', 'user_code_max')):
+        if not user_code_within_regions(pwentry.pw_uid, user_code_regions):
             # Skip
             continue
 
