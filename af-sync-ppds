@@ -27,9 +27,11 @@ from aficio1075 import config_utils
 from ConfigParser import SafeConfigParser
 import os
 import pwd
-import grp
 import sys
 import codecs
+import tempfile
+import fcntl
+import stat
 
 sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
@@ -136,14 +138,38 @@ def main():
     codes = read_codes(um, user_code_regions)
 
     for ppd_file in ppd_files:
-        f = open(ppd_file, 'rb')
-        ft = open('new.ppd', 'wb')
-        stream_update_codes(f, ft, codes)
-        ft.flush()
-        os.fsync(ft.fileno())
-        ft.close()
-        f.close()
+        # Open original PPD
+        f = open(ppd_file, 'r+b')
+        fcntl.lockf(f.fileno(), fcntl.LOCK_EX)
 
+        # Prepare a temporary file for generation of the updated PPD
+        new_fd, new_ppd_file = tempfile.mkstemp(
+                prefix=os.path.basename(ppd_file),
+                dir=os.path.dirname(ppd_file))
+        try:
+            new_f = os.fdopen(new_fd, 'wb')
+            try:
+                os.chmod(new_ppd_file,
+                        stat.S_IMODE(os.fstat(f.fileno()).st_mode))
+
+                # Copy the old PPD to the new file, while updating the
+                # user code sub-section.
+                stream_update_codes(f, new_f, codes)
+
+                # Make sure the data has reached the disk.
+                new_f.flush()
+                os.fsync(new_f.fileno())
+
+                # Make the new PPD the active/current PPD.
+                os.rename(new_ppd_file, ppd_file)
+            finally:
+                new_f.close()
+        except:
+            os.remove(new_ppd_file)
+            raise
+
+        # Close the original file and implicitly release the lock.
+        f.close()
 
 if __name__ == '__main__':
     main()
