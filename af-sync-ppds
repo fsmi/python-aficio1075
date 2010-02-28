@@ -94,12 +94,17 @@ def main():
     parser.add_option("--config", action = "store", dest = "config_file",
             help = "Path of configuration file",
             default = config_utils.CONFIG_PATH)
+    parser.add_option("--ppd-files", action = "store", dest = "ppd_files",
+            help = "PPD files to update")
     (options, args) = parser.parse_args()
     if len(args) != 0:
         parser.error("incorrect number of arguments")
 
     cf = SafeConfigParser()
     cf.read(options.config_file)
+
+    if options.ppd_files is not None:
+        cf.set('ppd_sync', 'ppd_files', options.ppd_files)
 
     if not cf.has_section('printer') or \
             not cf.has_option('printer', 'hostname'):
