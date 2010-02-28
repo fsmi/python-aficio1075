@@ -25,6 +25,7 @@
 
 from optparse import OptionParser
 from aficio1075 import accounts
+from aficio1075 import config_utils
 from ConfigParser import SafeConfigParser
 import pwd
 import grp
@@ -35,32 +36,11 @@ sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
 
-CONFIG_PATH = '/etc/aficio1075.conf'
-
-
-def list_to_dict(attr_name, list):
-    d = {}
-    for e in list:
-        d[getattr(e, attr_name)] = e
-    return d
-
-def comma_string_to_list(s):
-    return [e.strip() for e in s.split(',')]
-
-def region_to_int_pair(s):
-    start, end = s.split('-')
-    return (int(start.strip()), int(end.strip()))
-
-def user_code_within_regions(code, regions):
-    for region in regions:
-        if code >= region[0] and code <= region[1]:
-            return True
-    return False
-
 def main():
     parser = OptionParser()
     parser.add_option("--config", action = "store", dest = "config_file",
-            help = "Path of configuration file", default = CONFIG_PATH)
+            help = "Path of configuration file",
+            default = config_utils.CONFIG_PATH)
     parser.add_option("--hostname", action = "store", dest = "hostname",
             help = "Hostname of the Aficio printer")
     parser.add_option("--passwd", action = "store", dest = "passwd",
@@ -91,12 +71,13 @@ def main():
     if not cf.has_option('unix_sync', 'user_code_regions'):
         parser.error("user_code_regions not specified")
     else:
-        user_code_regions = [region_to_int_pair(region) for region in
-                comma_string_to_list(cf.get('unix_sync', 'user_code_regions'))]
+        user_code_regions = config_utils.str_to_code_regions(
+                cf.get('unix_sync', 'user_code_regions'))
     if not cf.has_option('unix_sync', 'valid_groups'):
         parser.error("valid_groups not specified")
     else:
-        valid_groups = comma_string_to_list(cf.get('unix_sync', 'valid_groups'))
+        valid_groups = config_utils.comma_string_to_list(
+                cf.get('unix_sync', 'valid_groups'))
 
     if options.simulate:
         print "note: only simulating commands."
@@ -113,9 +94,10 @@ def main():
 
     accts_to_disable = []
 
-    accts = list_to_dict('user_code', um.get_user_infos())
+    accts = config_utils.list_to_dict('user_code', um.get_user_infos())
     for acct in accts.values():
-        if not user_code_within_regions(acct.user_code, user_code_regions):
+        if not config_utils.user_code_within_regions(acct.user_code,
+                user_code_regions):
             # Skip
             continue
 
@@ -156,7 +138,8 @@ def main():
     accts_to_activate = []
 
     for pwentry in pwd.getpwall():
-        if not user_code_within_regions(pwentry.pw_uid, user_code_regions):
+        if not config_utils.user_code_within_regions(pwentry.pw_uid,
+                user_code_regions):
             # Skip
             continue
 
