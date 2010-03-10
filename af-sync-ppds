@@ -39,11 +39,25 @@ import stat
 sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
+def unidecode_handle_error(exc):
+    """Handles codec errors by converting the characters to ASCII
+    representations using the unidecode lib.
+
+    Only supports UnicodeEncodeError for now (UnicodeDecodeError and
+    UnicodeTranslateError are untested).
+    """
+    failed_chars = exc.object[exc.start:exc.end]
+    return (unicode(unidecode.unidecode(failed_chars)), exc.end)
+
+codecs.register_error('unidecode', unidecode_handle_error)
+
 
 def stream_update_codes(in_f, out_f, codes):
-    # Convert the unicode chars to an ASCII representation, as the PPD
-    # encoding is very limited.
-    enc_str = lambda s: unidecode.unidecode(s)
+    # Force the unicode chars to latin1, as the PPD has no native support for
+    # anything more advanced.  Any characters not convertable to latin1 will be
+    # translated by unidecode to an ASCII representation.
+    encoder = codecs.getencoder('latin1')
+    enc_str = lambda s: encoder(s, 'unidecode')[0]
 
     within_code_ui = False
     for line in in_f:
