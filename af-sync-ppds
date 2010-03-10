@@ -21,10 +21,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
+# Depends on unidecode
+
 from optparse import OptionParser
 from aficio1075 import accounts
 from aficio1075 import config_utils
 from ConfigParser import SafeConfigParser
+import unidecode
 import os
 import pwd
 import sys
@@ -38,9 +41,9 @@ sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
 
 def stream_update_codes(in_f, out_f, codes):
-    # Forcefully encode our unicode strings to the encoding used by the PPD.
-    encoder = codecs.getencoder('latin1')
-    enc_str = lambda s: encoder(s, 'replace')[0]
+    # Convert the unicode chars to an ASCII representation, as the PPD
+    # encoding is very limited.
+    enc_str = lambda s: unidecode.unidecode(s)
 
     within_code_ui = False
     for line in in_f:
