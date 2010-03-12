@@ -1,0 +1,204 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# vim:set ft=python ts=4 sw=4 et:
+
+# af-print-accounts -- Command-line tool to generate a list of accounts on a
+#   Ricoh Aficio 1075.
+#
+# Copyright (C) 2010 Fabian Knittel <fabian.knittel@avona.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
+
+# Depends on python-reportlab, ttf-bitstream-vera
+
+from optparse import OptionParser
+from aficio1075 import accounts
+from aficio1075 import config_utils
+from ConfigParser import SafeConfigParser
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.platypus import Spacer, Paragraph, Frame, Table, TableStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.colors import green
+import sys
+import codecs
+import locale
+import time
+import pwd
+import reportlab.rl_config
+
+TTF_VERA_PATH = '/usr/share/fonts/truetype/ttf-bitstream-vera'
+
+
+def ensure_vera_fonts_loaded():
+    if 'Vera' in pdfmetrics.getRegisteredFontNames():
+        # Fonts already loaded.
+        return
+
+    if TTF_VERA_PATH not in reportlab.rl_config.TTFSearchPath:
+        reportlab.rl_config.TTFSearchPath.append(TTF_VERA_PATH)
+
+    for font_name in ['Vera', 'VeraBd', 'VeraIt', 'VeraBI']:
+        pdfmetrics.registerFont(TTFont(font_name, '%s.ttf' % font_name))
+    pdfmetrics.registerFontFamily('Vera', normal='Vera', bold='VeraBd',
+            italic='VeraIt', boldItalic='VeraBI')
+
+def code_table(heading, codes):
+    heading_style = ParagraphStyle('Heading', fontName='VeraBd',
+            alignment=TA_LEFT)
+    num_col_style = ParagraphStyle('NumCol', fontName='Vera',
+            alignment=TA_RIGHT)
+    name_col_style = ParagraphStyle('NameCol', fontName='Vera',
+            alignment=TA_LEFT)
+
+    table_style = TableStyle([
+        # Table heading
+        ('VALIGN',   (0, 0), (-1, 0), 'TOP'),
+        ('SPAN',     (0, 0), (1, 0)),
+        ])
+
+    row_heights = (0.70 * cm,) + (0.55 * cm,) * len(codes)
+    data = []
+    data.append([Paragraph(heading, heading_style), u''])
+    for code, name in codes:
+        data.append([
+            Paragraph(u'%d' % code, num_col_style),
+            Paragraph(name, name_col_style)])
+    return Table(data, colWidths=(1.5 * cm, None), rowHeights=row_heights,
+            style=table_style)
+
+def add_and_split_from_list(frame, canvas, content):
+    while len(content) > 0:
+        # Fetch one element from the content list at a time.
+        el = content.pop(0)
+        l = [el]
+        frame.addFromList(l, canvas)
+        if len(l) > 0:
+            # Canvas is full, split the current element ...
+            fragments = frame.split(el, canvas)
+            frame.addFromList(fragments, canvas)
+            # and prepend the rest back onto the content list.
+            for fragment in reversed(fragments):
+                content.insert(0, fragment)
+            return
+
+def codes_to_pdf(pdf_fn, page_size, user_codes, special_codes):
+    PAGE_WIDTH, PAGE_HEIGHT = page_size
+
+    ensure_vera_fonts_loaded()
+
+    content = [
+            code_table(u'User Codes', user_codes),
+            Spacer(0, 1*cm),
+            code_table(u'Special Codes', special_codes),
+            ]
+
+    c = Canvas(pdf_fn, pagesize=page_size)
+    while len(content) > 0:
+        c.saveState()
+        c.setFont('Vera', 7)
+        c.drawRightString(PAGE_WIDTH - cm, cm, time.strftime('%x %X'))
+        c.restoreState()
+
+        left_frame = Frame(cm, 1.0 * cm,
+                (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 2.0 * cm)
+        add_and_split_from_list(left_frame, c, content)
+
+        right_frame = Frame((PAGE_WIDTH / 2.0) + 0.25 * cm, 1.0 * cm,
+                (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 2.0 * cm)
+        add_and_split_from_list(right_frame, c, content)
+
+        c.showPage()
+    c.save()
+
+def read_codes(um, user_code_regions):
+    accts = um.get_user_infos()
+
+    # Filter all user accounts.
+    user_accts = filter(lambda acct: config_utils.user_code_within_regions(
+            acct.user_code, user_code_regions), accts)
+    user_accts.sort(key=lambda acct: acct.name)
+
+    user_codes = []
+    for acct in user_accts:
+        # Does the user code have a matching UNIX account?
+        try:
+            pwentry = pwd.getpwuid(acct.user_code)
+            name = unicode(pwentry.pw_gecos, 'utf-8')
+        except KeyError:
+            # For some reason, there is no matching UNIX account.  For our
+            # purposes this is no big deal.
+            name = acct.name
+        user_codes.append((acct.user_code, name))
+
+    # Filter all non-user accounts.
+    special_accts = filter(lambda acct:
+            not config_utils.user_code_within_regions(acct.user_code,
+                    user_code_regions), accts)
+    special_accts.sort(key=lambda acct: acct.user_code)
+
+    special_codes = [(acct.user_code, acct.name) for acct in special_accts]
+
+    return (user_codes, special_codes)
+
+def main():
+    locale.setlocale(locale.LC_ALL, '')
+    sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
+    sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
+
+    usage = "usage: %prog [options] <output-pdf-file>"
+
+    parser = OptionParser(usage)
+    parser.add_option("--config", action = "store", dest = "config_file",
+            help = "Path of configuration file",
+            default = config_utils.CONFIG_PATH)
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        parser.error("expecting PDF output file as single argument")
+
+    output_fn = args[0]
+
+    cf = SafeConfigParser()
+    cf.read(options.config_file)
+
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'hostname'):
+        parser.error("hostname not specified")
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'passwd'):
+        parser.error("passwd not specified")
+
+    if not cf.has_section('unix_sync'):
+        parser.error("configuration file misses unix_sync section")
+    if not cf.has_option('unix_sync', 'user_code_regions'):
+        parser.error("user_code_regions not specified")
+    else:
+        user_code_regions = config_utils.str_to_code_regions(
+                cf.get('unix_sync', 'user_code_regions'))
+
+
+    um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
+            passwd = cf.get('printer', 'passwd'), retry_busy = True)
+
+    user_codes, special_codes = read_codes(um, user_code_regions)
+
+    codes_to_pdf(output_fn, A4, user_codes, special_codes)
+
+if __name__ == '__main__':
+    main()

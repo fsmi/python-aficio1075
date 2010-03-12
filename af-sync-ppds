@@ -1,0 +1,196 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# vim:set ft=python ts=4 sw=4 et:
+
+# af-sync-ppds -- Update the list of available user codes in one or more PPD
+#   files.
+#
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2, or (at your option)
+# any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
+
+# Depends on unidecode
+
+from optparse import OptionParser
+from aficio1075 import accounts
+from aficio1075 import config_utils
+from ConfigParser import SafeConfigParser
+import unidecode
+import os
+import pwd
+import sys
+import codecs
+import tempfile
+import fcntl
+import stat
+
+sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
+sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
+
+def unidecode_handle_error(exc):
+    """Handles codec errors by converting the characters to ASCII
+    representations using the unidecode lib.
+
+    Only supports UnicodeEncodeError for now (UnicodeDecodeError and
+    UnicodeTranslateError are untested).
+    """
+    failed_chars = exc.object[exc.start:exc.end]
+    return (unicode(unidecode.unidecode(failed_chars)), exc.end)
+
+codecs.register_error('unidecode', unidecode_handle_error)
+
+
+def stream_update_codes(in_f, out_f, codes):
+    # Force the unicode chars to latin1, as the PPD has no native support for
+    # anything more advanced.  Any characters not convertable to latin1 will be
+    # translated by unidecode to an ASCII representation.
+    encoder = codecs.getencoder('latin1')
+    enc_str = lambda s: encoder(s, 'unidecode')[0]
+
+    within_code_ui = False
+    for line in in_f:
+        if not within_code_ui:
+            if line.startswith('*OpenUI *Code'):
+                within_code_ui = True
+        else:
+            if line.startswith('*Code '):
+                # Skip the line.
+                continue
+            elif line.startswith('*CloseUI: *Code'):
+                within_code_ui = False
+                for code in codes:
+                    out_f.write(enc_str('*Code %d/%s %d: "%% ' \
+                            'FoomaticRIPOptionSetting: Code=%d"\n' % (
+                            code[0], code[1], code[0], code[0])))
+        out_f.write(line)
+
+def read_codes(um, user_code_regions):
+    accts = um.get_user_infos()
+
+    # We only want accounts that may print.
+    accts = filter(lambda acct: acct.restrict.grant_printer, accts)
+
+    # Filter all user accounts.
+    user_accts = filter(lambda acct: config_utils.user_code_within_regions(
+            acct.user_code, user_code_regions), accts)
+    user_accts.sort(key=lambda acct: acct.name)
+
+    # Filter all non-user accounts.
+    special_accts = filter(lambda acct:
+            not config_utils.user_code_within_regions(acct.user_code,
+                    user_code_regions), accts)
+    special_accts.sort(key=lambda acct: acct.user_code)
+
+    # Build list of user code and account name pairs.
+
+    # First for the special accounts.
+    codes = [(acct.user_code, acct.name) for acct in special_accts]
+
+    # Next for the user accounts.
+    for acct in user_accts:
+        # Does the user code have a matching UNIX account?
+        try:
+            pwentry = pwd.getpwuid(acct.user_code)
+            name = unicode(pwentry.pw_gecos, 'utf-8')
+        except KeyError:
+            # For some reason, there is no matching UNIX account.  For our
+            # purposes this is no big deal.
+            name = acct.name
+        codes.append((acct.user_code, name))
+
+    return codes
+
+def main():
+    parser = OptionParser()
+    parser.add_option("--config", action = "store", dest = "config_file",
+            help = "Path of configuration file",
+            default = config_utils.CONFIG_PATH)
+    parser.add_option("--ppd-files", action = "store", dest = "ppd_files",
+            help = "PPD files to update")
+    (options, args) = parser.parse_args()
+    if len(args) != 0:
+        parser.error("incorrect number of arguments")
+
+    cf = SafeConfigParser()
+    cf.read(options.config_file)
+
+    if options.ppd_files is not None:
+        cf.set('ppd_sync', 'ppd_files', options.ppd_files)
+
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'hostname'):
+        parser.error("hostname not specified")
+    if not cf.has_section('printer') or \
+            not cf.has_option('printer', 'passwd'):
+        parser.error("passwd not specified")
+
+    if not cf.has_section('unix_sync'):
+        parser.error("configuration file misses unix_sync section")
+    if not cf.has_option('unix_sync', 'user_code_regions'):
+        parser.error("user_code_regions not specified")
+    else:
+        user_code_regions = config_utils.str_to_code_regions(
+                cf.get('unix_sync', 'user_code_regions'))
+
+    if not cf.has_section('ppd_sync'):
+        parser.error("configuration file misses ppd_sync section")
+    if not cf.has_option('ppd_sync', 'ppd_files'):
+        parser.error("valid_groups not specified")
+    else:
+        ppd_files = config_utils.comma_string_to_list(
+                cf.get('ppd_sync', 'ppd_files'))
+
+    um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
+            passwd = cf.get('printer', 'passwd'))
+
+    # Read accounts from printer.
+    codes = read_codes(um, user_code_regions)
+
+    for ppd_file in ppd_files:
+        # Open original PPD
+        f = open(ppd_file, 'r+b')
+        fcntl.lockf(f.fileno(), fcntl.LOCK_EX)
+
+        # Prepare a temporary file for generation of the updated PPD
+        new_fd, new_ppd_file = tempfile.mkstemp(
+                prefix=os.path.basename(ppd_file),
+                dir=os.path.dirname(ppd_file))
+        try:
+            new_f = os.fdopen(new_fd, 'wb')
+            try:
+                os.chmod(new_ppd_file,
+                        stat.S_IMODE(os.fstat(f.fileno()).st_mode))
+
+                # Copy the old PPD to the new file, while updating the
+                # user code sub-section.
+                stream_update_codes(f, new_f, codes)
+
+                # Make sure the data has reached the disk.
+                new_f.flush()
+                os.fsync(new_f.fileno())
+
+                # Make the new PPD the active/current PPD.
+                os.rename(new_ppd_file, ppd_file)
+            finally:
+                new_f.close()
+        except:
+            os.remove(new_ppd_file)
+            raise
+
+        # Close the original file and implicitly release the lock.
+        f.close()
+
+if __name__ == '__main__':
+    main()

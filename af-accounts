@@ -24,14 +24,13 @@
 
 from optparse import OptionParser
 from aficio1075 import accounts
+from aficio1075 import config_utils
 from ConfigParser import SafeConfigParser
 import sys
 import codecs
 
 sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
-
-CONFIG_PATH = '/etc/aficio1075.conf'
 
 
 def show_acct(acct):
@@ -53,15 +52,19 @@ def show_acct(acct):
 def main():
     valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
 
-    parser = OptionParser()
+    usage = "usage: %prog [options] (" + "|".join(valid_modes) + ")"
+
+    parser = OptionParser(usage=usage)
     parser.add_option("--config", action = "store", dest = "config_file",
-            help = "Path of configuration file", default = CONFIG_PATH)
+            help = "Path of configuration file",
+            default = config_utils.CONFIG_PATH)
     parser.add_option("--hostname", action = "store", dest = "hostname",
             help = "Hostname of the Aficio printer")
     parser.add_option("--passwd", action = "store", dest = "passwd",
             help = "Password for the Aficio printer")
     parser.add_option("--user-code", action = "store", type = "int",
-            dest = "user_code", help = "The user code")
+            dest = "user_code",
+            help = "The user code (mandatory for all commands except show)")
     parser.add_option("--user-name", action = "store", dest = "name",
             help = "The user's name")
     (options, args) = parser.parse_args()
