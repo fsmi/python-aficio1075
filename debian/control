@@ -21,12 +21,15 @@ Description: Provides Python wrappers around RICOH Aficio 1075 functions
 
 Package: aficio1075-tools
 Architecture: all
-Depends: python-aficio1075, ${python:Depends}
+Depends: ${python:Depends}, python-aficio1075, python-reportlab,
+ ttf-bitstream-vera
 Description: Provides command-line tools to manage RICOH Aficio 1075 printers
  The tools included in this package allow the management and analysis of
  some aspects of the RICOH Aficio 1075 printers.
  .
  Currently, the following tools are included:
    af-accounts - Account management
+   af-print-accounts - Create a PDF containing all accounts
    af-list-jobs - Print job listing
    af-sync-accounts - Sync Unix users with the account list
+   af-sync-ppds - Update PPDs with the list of valid printer user codes
