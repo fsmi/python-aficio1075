@@ -3,12 +3,13 @@ Section: python
 Priority: extra
 Maintainer: Fabian Knittel <fabian.knittel@avona.com>
 Uploaders: Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
-Build-Depends: debhelper (>= 5.0.38), python-support (>= 0.5.3)
-Standards-Version: 3.8.0
+Build-Depends: debhelper (>= 7), python-support (>= 0.5.3)
+Standards-Version: 3.8.4
 
 Package: python-aficio1075
 Architecture: all
-Depends: python-httplib2, python-xml, python-utidylib, ${python:Depends}
+Depends: ${python:Depends}, ${misc:Depends}, python-httplib2, python-xml,
+ python-utidylib
 Provides: ${python:Provides}
 Description: Provides Python wrappers around RICOH Aficio 1075 functions
  The Python modules in this package provide access to various network features
@@ -21,8 +22,8 @@ Description: Provides Python wrappers around RICOH Aficio 1075 functions
 
 Package: aficio1075-tools
 Architecture: all
-Depends: ${python:Depends}, python-aficio1075, python-reportlab,
- ttf-bitstream-vera
+Depends: ${python:Depends}, ${misc:Depends}, python-aficio1075,
+ python-reportlab, ttf-bitstream-vera
 Description: Provides command-line tools to manage RICOH Aficio 1075 printers
  The tools included in this package allow the management and analysis of
  some aspects of the RICOH Aficio 1075 printers.

@@ -1,10 +1,13 @@
-python-aficio1075 (0.4-1) UNRELEASED; urgency=low
+python-aficio1075 (0.4-1) fsmi-lenny; urgency=low
 
   * New upstream release:
     - af-accounts: Slightly improved command-line help.
     - af-sync-ppds: New script to update PPDs with valid user codes.
     - af-print-accounts: New script to generate a PDF with a list of all
       user codes.
+  * Update copyright file to reflect new year and new maintainer email-address.
+  * debian/rules: tiny debhelper 7 rule set.
+  * Bump standards version (no changes).
 
  -- Fabian Knittel <fabian.knittel@avona.com>  Fri, 12 Mar 2010 18:36:10 +0100
 
