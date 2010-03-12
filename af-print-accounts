@@ -1,0 +1,108 @@
+#!/usr/bin/python
+# -*- coding: UTF-8 -*-
+
+import locale
+locale.setlocale(locale.LC_ALL, '')
+
+import time
+import reportlab.rl_config
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+
+reportlab.rl_config.TTFSearchPath.append('/usr/share/fonts/truetype/ttf-bitstream-vera')
+pdfmetrics.registerFont(TTFont('Vera', 'Vera.ttf'))
+pdfmetrics.registerFont(TTFont('VeraBd', 'VeraBd.ttf'))
+pdfmetrics.registerFont(TTFont('VeraIt', 'VeraIt.ttf'))
+pdfmetrics.registerFont(TTFont('VeraBI', 'VeraBI.ttf'))
+pdfmetrics.registerFontFamily('Vera', normal='Vera', bold='VeraBd',
+        italic='VeraIt', boldItalic='VeraBI')
+
+from reportlab.pdfgen.canvas import Canvas
+from reportlab.platypus import Paragraph, Frame, Table, TableStyle
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from reportlab.lib.colors import green
+
+heading_style = ParagraphStyle('Heading', fontName='VeraBd',
+        alignment=TA_LEFT)
+num_col_style = ParagraphStyle('NumCol', fontName='Vera',
+        alignment=TA_RIGHT)
+
+PAGE_WIDTH, PAGE_HEIGHT = A4
+
+def buildPageTemplate(c, title):
+    c.saveState()
+    c.setFont('VeraBd', 16)
+    c.drawCentredString(PAGE_WIDTH * 0.5, PAGE_HEIGHT - 1.25 * cm, title)
+    c.setFont('Vera', 7)
+    c.drawRightString(PAGE_WIDTH - cm, cm, time.strftime('%x %X'))
+    c.restoreState()
+
+def code_table(heading, codes):
+    table_style = TableStyle([
+        ('FONTNAME', (0, 0), (1, 2), 'VeraBd'),
+        ('VALIGN',   (0, 0), (1, 2), 'TOP'),
+        ('FONTNAME', (0, 1), (-1, -1), 'Vera'),
+        ('SPAN',     (0, 0), (1, 0)),
+        ])
+
+    row_heights = (0.70*cm,) + (0.58*cm,)*len(codes)
+    data = []
+    data.append([Paragraph(heading, heading_style), u''])
+    for name, code in codes:
+        data.append([Paragraph(u'%d' % code, num_col_style), name])
+    return Table(data, colWidths=(1.5*cm, None), rowHeights=row_heights,
+            style=table_style)
+
+
+codes = [
+    (u"Jelena Vojković", 1),
+    (u"Jelena Vojković", 2),
+    (u"Jelena Vojković", 3),
+    (u"Örän Jüßlitschć", 4),
+    (u"Jelena Vojković", 5),
+    (u"Jelena Vojković", 4006),
+    (u"Jelena Vojković", 4007),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Jelena Vojković", 2435),
+    (u"Heike Mareike Schmidtobreick", 2435),
+    (u"Jelena Vojković", 2435),
+]
+
+c = Canvas('hello.pdf', pagesize=A4)
+buildPageTemplate(c, u"Accounting Codes")
+
+left_frame = Frame(cm, 1.5*cm,
+        (PAGE_WIDTH / 2.0) - 1.25*cm, PAGE_HEIGHT - 3.5*cm)
+left_frame.addFromList([code_table(u'User Codes', codes)], c)
+
+right_frame = Frame((PAGE_WIDTH / 2.0) + 0.25*cm, 1.5*cm,
+        (PAGE_WIDTH / 2.0) - 1.25*cm, PAGE_HEIGHT - 3.5*cm)
+right_frame.addFromList([code_table(u'Special Codes', codes)], c)
+
+c.save()
+
