@@ -30,7 +30,7 @@ from ConfigParser import SafeConfigParser
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import Paragraph, Frame, Table, TableStyle
+from reportlab.platypus import Spacer, Paragraph, Frame, Table, TableStyle
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
 from reportlab.lib.styles import ParagraphStyle
@@ -65,44 +65,67 @@ def code_table(heading, codes):
             alignment=TA_LEFT)
     num_col_style = ParagraphStyle('NumCol', fontName='Vera',
             alignment=TA_RIGHT)
+    name_col_style = ParagraphStyle('NameCol', fontName='Vera',
+            alignment=TA_LEFT)
 
     table_style = TableStyle([
-        ('FONTNAME', (0, 0), (1, 2), 'VeraBd'),
-        ('VALIGN',   (0, 0), (1, 2), 'TOP'),
-        ('FONTNAME', (0, 1), (-1, -1), 'Vera'),
+        # Table heading
+        ('VALIGN',   (0, 0), (-1, 0), 'TOP'),
         ('SPAN',     (0, 0), (1, 0)),
         ])
 
-    row_heights = (0.70 * cm,) + (0.58 * cm,) * len(codes)
+    row_heights = (0.70 * cm,) + (0.55 * cm,) * len(codes)
     data = []
     data.append([Paragraph(heading, heading_style), u''])
     for code, name in codes:
-        data.append([Paragraph(u'%d' % code, num_col_style), name])
+        data.append([
+            Paragraph(u'%d' % code, num_col_style),
+            Paragraph(name, name_col_style)])
     return Table(data, colWidths=(1.5 * cm, None), rowHeights=row_heights,
             style=table_style)
+
+def add_and_split_from_list(frame, canvas, content):
+    while len(content) > 0:
+        # Fetch one element from the content list at a time.
+        el = content.pop(0)
+        l = [el]
+        frame.addFromList(l, canvas)
+        if len(l) > 0:
+            # Canvas is full, split the current element ...
+            fragments = frame.split(el, canvas)
+            frame.addFromList(fragments, canvas)
+            # and prepend the rest back onto the content list.
+            for fragment in reversed(fragments):
+                content.insert(0, fragment)
+            return
 
 def codes_to_pdf(pdf_fn, page_size, user_codes, special_codes):
     PAGE_WIDTH, PAGE_HEIGHT = page_size
 
     ensure_vera_fonts_loaded()
 
+    content = [
+            code_table(u'User Codes', user_codes),
+            Spacer(0, 1*cm),
+            code_table(u'Special Codes', special_codes),
+            ]
+
     c = Canvas(pdf_fn, pagesize=page_size)
-    c.saveState()
-    c.setFont('VeraBd', 16)
-    c.drawCentredString(PAGE_WIDTH * 0.5, PAGE_HEIGHT - 1.25 * cm,
-            u"Accounting Codes")
-    c.setFont('Vera', 7)
-    c.drawRightString(PAGE_WIDTH - cm, cm, time.strftime('%x %X'))
-    c.restoreState()
+    while len(content) > 0:
+        c.saveState()
+        c.setFont('Vera', 7)
+        c.drawRightString(PAGE_WIDTH - cm, cm, time.strftime('%x %X'))
+        c.restoreState()
 
-    left_frame = Frame(cm, 1.5 * cm,
-            (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 3.5 * cm)
-    left_frame.addFromList([code_table(u'User Codes', user_codes)], c)
+        left_frame = Frame(cm, 1.0 * cm,
+                (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 2.0 * cm)
+        add_and_split_from_list(left_frame, c, content)
 
-    right_frame = Frame((PAGE_WIDTH / 2.0) + 0.25 * cm, 1.5 * cm,
-            (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 3.5 * cm)
-    right_frame.addFromList([code_table(u'Special Codes', special_codes)], c)
+        right_frame = Frame((PAGE_WIDTH / 2.0) + 0.25 * cm, 1.0 * cm,
+                (PAGE_WIDTH / 2.0) - 1.25 * cm, PAGE_HEIGHT - 2.0 * cm)
+        add_and_split_from_list(right_frame, c, content)
 
+        c.showPage()
     c.save()
 
 def read_codes(um, user_code_regions):
