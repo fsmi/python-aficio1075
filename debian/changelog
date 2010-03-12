@@ -1,3 +1,9 @@
+python-aficio1075 (0.4-2) fsmi-lenny; urgency=low
+
+  * Add missing dependency for python-unidecode. Needed by af-sync-ppds.
+
+ -- Fabian Knittel <fabian.knittel@avona.com>  Fri, 12 Mar 2010 19:01:15 +0100
+
 python-aficio1075 (0.4-1) fsmi-lenny; urgency=low
 
   * New upstream release:
