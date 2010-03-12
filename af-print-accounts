@@ -43,7 +43,6 @@ import time
 import pwd
 import reportlab.rl_config
 
-CONFIG_PATH = '/etc/aficio1075.conf'
 TTF_VERA_PATH = '/usr/share/fonts/truetype/ttf-bitstream-vera'
 
 
@@ -163,12 +162,17 @@ def main():
     sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
     sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
-    parser = OptionParser()
+    usage = "usage: %prog [options] <output-pdf-file>"
+
+    parser = OptionParser(usage)
     parser.add_option("--config", action = "store", dest = "config_file",
-            help = "Path of configuration file", default = CONFIG_PATH)
+            help = "Path of configuration file",
+            default = config_utils.CONFIG_PATH)
     (options, args) = parser.parse_args()
-    if len(args) != 0:
-        parser.error("incorrect number of arguments")
+    if len(args) != 1:
+        parser.error("expecting PDF output file as single argument")
+
+    output_fn = args[0]
 
     cf = SafeConfigParser()
     cf.read(options.config_file)
@@ -194,7 +198,7 @@ def main():
 
     user_codes, special_codes = read_codes(um, user_code_regions)
 
-    codes_to_pdf('hello.pdf', A4, user_codes, special_codes)
+    codes_to_pdf(output_fn, A4, user_codes, special_codes)
 
 if __name__ == '__main__':
     main()
