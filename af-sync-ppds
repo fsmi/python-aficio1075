@@ -94,7 +94,11 @@ def read_codes(um, user_code_regions):
     special_accts.sort(key=lambda acct: acct.user_code)
 
     # Build list of user code and account name pairs.
+
+    # First for the special accounts.
     codes = [(acct.user_code, acct.name) for acct in special_accts]
+
+    # Next for the user accounts.
     for acct in user_accts:
         # Does the user code have a matching UNIX account?
         try:
