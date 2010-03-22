@@ -56,8 +56,6 @@ def ensure_vera_fonts_loaded():
 
     for font_name in ['Vera', 'VeraBd', 'VeraIt', 'VeraBI']:
         pdfmetrics.registerFont(TTFont(font_name, '%s.ttf' % font_name))
-    pdfmetrics.registerFontFamily('Vera', normal='Vera', bold='VeraBd',
-            italic='VeraIt', boldItalic='VeraBI')
 
 def code_table(heading, codes):
     heading_style = ParagraphStyle('Heading', fontName='VeraBd',
