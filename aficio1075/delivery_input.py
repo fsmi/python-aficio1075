@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
 
 # aficio1075/delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of
 #   Ricoh Aficio 1075
 #
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,22 +19,16 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-# Based on bash scripts and XML snippets by
-# Thomas Witzenrath <thomas.witzenrath@fsmi.uni-karlsruhe.de>.
-
-# Depends on python-httplib2, python-xml
-
-import httplib2
+import httplib
 import codecs
 import socket
-from xml.dom.ext.reader import Sax2
-from xml import xpath
+from xml.etree.ElementTree import XML
 from aficio1075.security import encode_password
 from aficio1075.encoding import encode, decode
 
 
-def _get_text_node(path, node):
-    return xpath.Evaluate('string(%s)' % path, node)
+def _get_text_node(path, base_node):
+    return base_node.find(path).text
 
 class DeliveryInputException:
     def __init__(self, reason):
@@ -55,15 +48,12 @@ class DeliveryInput(object):
             'Content-Type': 'text/xml; charset=UTF-8',
             'SOAPAction': 'http://www.ricoh.co.jp' \
                     '/xmlns/soap/rdh/deliveryinput#%s' % func_name}
-        uri = "http://%s:%d/DeliveryInput" % \
-            (self.__host, self.__port)
 
-        h = httplib2.Http()
-        (result, content) = h.request(uri, "POST", body = body,
-                    headers = headers)
+        conn = httplib.HTTPConnection(self.__host, self.__port)
+        conn.request("POST", "/DeliveryInput", body, headers)
+        resp = conn.getresponse()
 
-        reader = Sax2.Reader()
-        doc = reader.fromString(content)
+        doc = XML(resp.read())
         return doc
 
     def _perform_operation(self, func_name, oper):
@@ -92,10 +82,10 @@ class DeliveryInput(object):
         """ % encoded_auth_token
         doc = self._perform_operation('authenticate', body)
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Authentication failed')
 
-        self.__auth_cookie = _get_text_node('//*/ticket_out/string', doc)
+        self.__auth_cookie = _get_text_node('.//*/ticket_out/string', doc)
 
     def _ticket_xml(self):
         if self.__auth_cookie is None:
@@ -146,7 +136,7 @@ class DeliveryInput(object):
         """ % (self._ticket_xml(), self._encoded_host(host))
         doc = self._perform_operation('setDeliveryService', body)
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')
 
     def get_delivery_service(self):
@@ -160,11 +150,11 @@ class DeliveryInput(object):
 
         doc = self._perform_operation('getDeliveryService', body)
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')
 
         delivery_host_ip_addr = decode(
-                _get_text_node('//*/address_out/string', doc))
+                _get_text_node('.//*/address_out/string', doc))
 
         if delivery_host_ip_addr == '0.0.0.0':
             return None
@@ -192,5 +182,5 @@ class DeliveryInput(object):
         """ % (self._ticket_xml(), generation_nr, self._encoded_host(host))
         doc = self._perform_operation('synchronize', body)
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')
