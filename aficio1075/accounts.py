@@ -25,7 +25,8 @@
 
 import httplib
 import codecs
-from xml.etree.ElementTree import XML
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement
 import time
 from aficio1075 import security
 from aficio1075.encoding import encode, decode, DEFAULT_STRING_ENCODING
@@ -107,12 +108,6 @@ class UserStatistics(object):
                     'scannerInfo/monochrome/doubleSize', stats_node)))
 
 
-def _avail_str(is_available):
-    if is_available:
-        return '<available/>'
-    else:
-        return '<restricted/>'
-
 class UserRestrict(object):
     def __init__(self, grant_copy=False, grant_printer=False,
             grant_scanner=False, grant_storage=False):
@@ -138,25 +133,22 @@ class UserRestrict(object):
                 self.grant_storage
 
     def to_xml(self):
-        return """\
-            <restrictInfo>
-                <copyInfo>
-                    <monochrome>%s</monochrome>
-                </copyInfo>
-                <printerInfo>
-                    <monochrome>%s</monochrome>
-                </printerInfo>
-                <scannerInfo>
-                    <scan>%s</scan>
-                </scannerInfo>
-                <localStorageInfo>
-                    <plot>%s</plot>
-                </localStorageInfo>
-            </restrictInfo>""" % (
-                    _avail_str(self.grant_copy),
-                    _avail_str(self.grant_printer),
-                    _avail_str(self.grant_scanner),
-                    _avail_str(self.grant_storage))
+        def _avail(parent, is_available):
+            if is_available:
+                return SubElement(parent, 'available')
+            else:
+                return SubElement(parent, 'restricted')
+
+        restrict_node = Element('restrictInfo')
+        _avail(SubElement(SubElement(restrict_node, 'copyInfo'),
+                'monochrome'), self.grant_copy)
+        _avail(SubElement(SubElement(restrict_node, 'printerInfo'),
+                'monochrome'), self.grant_printer)
+        _avail(SubElement(SubElement(restrict_node, 'scannerInfo'),
+                'scan'), self.grant_scanner)
+        _avail(SubElement(SubElement(restrict_node, 'localStorageInfo'),
+                'plot'), self.grant_storage)
+        return restrict_node
 
     @staticmethod
     def from_xml(restrict_node):
@@ -216,18 +208,15 @@ class User(object):
                 str(self.user_code), str(self.restrict), str(self.stats))
 
     def to_xml(self):
-        xml_str = """<user version="1.1">
-                    <userType>general</userType>"""
+        user = Element('user', version='1.1')
         if self.user_code is not None:
-            xml_str += '<userCode>%u</userCode>' % self.user_code
+            SubElement(user, 'userCode').text = '%u' % self.user_code
         if self.name is not None:
-            encoded_name = encode(self.name, DEFAULT_STRING_ENCODING)
-            xml_str += '<userCodeName enc="%s">%s</userCodeName>' % (
-                    DEFAULT_STRING_ENCODING, encoded_name)
+            SubElement(user, 'userCodeName', enc=DEFAULT_STRING_ENCODING)\
+                    .text = encode(self.name, DEFAULT_STRING_ENCODING)
         if self.restrict is not None:
-            xml_str += self.restrict.to_xml()
-        xml_str += '</user>'
-        return xml_str
+            user.append(self.restrict.to_xml())
+        return user
 
     @staticmethod
     def from_xml(user_node):
@@ -292,16 +281,17 @@ class UserMaintSession(object):
         conn.request("POST", "/System/usermaint/", body, headers)
         resp = conn.getresponse()
 
-        doc = XML(resp.read())
+        doc = ET.XML(resp.read())
         return doc
 
     def _perform_operation(self, oper):
-        body = """<?xml version='1.0' encoding='us-ascii'?>
-            <operation>
-                <authorization>%s</authorization>
-            %s
-            </operation>
-        """ % (security.encode_password(self.passwd), oper)
+        base = Element('operation')
+        SubElement(base, 'authorization').text = \
+                security.encode_password(self.passwd)
+        base.append(oper)
+
+        body = "<?xml version='1.0' encoding='us-ascii'?>\n" + \
+                ET.tostring(base)
         return self._send_request(body)
 
     def _perform_checked_operation(self, oper, result_name):
@@ -316,14 +306,12 @@ class UserMaintSession(object):
 
     def add_user(self, user):
         """Add a user account."""
-        body = """<addUserRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                    </target>
-                    %s
-                </addUserRequest>
-        """ % (user.user_code, user.to_xml())
-        doc, error_code = self._perform_checked_operation(body, 'addUserResult')
+        req = Element('addUserRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user.user_code
+        req.append(user.to_xml())
+
+        doc, error_code = self._perform_checked_operation(req, 'addUserResult')
         if error_code is not None:
             raise UserMaintError('failed to add user (code %s)' %\
                     error_code, code=error_code)
@@ -331,13 +319,10 @@ class UserMaintSession(object):
 
     def delete_user(self, user_code):
         """Delete a user account."""
-        body = """<deleteUserRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                    </target>
-                </deleteUserRequest>
-        """ % user_code
-        doc, error_code = self._perform_checked_operation(body,
+        req = Element('deleteUserRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user_code
+        doc, error_code = self._perform_checked_operation(req,
                 'deleteUserResult')
         if error_code is not None:
             raise UserMaintError('failed to delete user (code %s)' %\
@@ -366,22 +351,22 @@ class UserMaintSession(object):
     def _get_user_info(self, user_code='', req_user_code=True,
             req_user_code_name=True, req_restrict_info=True,
             req_statistics_info=True):
-        body = """<getUserInfoRequest>
-                    <target>
-                        <userCode>%s</userCode>
-                    </target>
-                    <user version="1.1">""" % user_code
+        req = Element('getUserInfoRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user_code
+
+        user = SubElement(req, 'user', version='1.1')
+
         if req_user_code:
-            body += '<userCode/>'
+            SubElement(user, 'userCode')
         if req_user_code_name:
-            body += '<userCodeName/>'
+            SubElement(user, 'userCodeName')
         if req_restrict_info:
-            body += '<restrictInfo/>'
+            SubElement(user, 'restrictInfo')
         if req_statistics_info:
-            body += '<statisticsInfo/>'
-        body += """</user>
-                </getUserInfoRequest>"""
-        doc, error_code = self._perform_checked_operation(body,
+            SubElement(user, 'statisticsInfo')
+
+        doc, error_code = self._perform_checked_operation(req,
                 'getUserInfoResult')
         if error_code is not None:
             raise UserMaintError('failed to retrieve user info (code %s)' %\
@@ -395,14 +380,13 @@ class UserMaintSession(object):
 
     def set_user_info(self, user):
         """Modify a user account."""
-        body = """<setUserInfoRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                        <deviceId></deviceId>
-                    </target>
-                    %s
-                </setUserInfoRequest>""" % (user.orig_user_code, user.to_xml())
-        doc, error_code = self._perform_checked_operation(body,
+        req = Element('setUserInfoRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user.orig_user_code
+        SubElement(target, 'deviceId')
+        req.append(user.to_xml())
+
+        doc, error_code = self._perform_checked_operation(req,
                 'setUserInfoResult')
         if error_code is not None:
             raise UserMaintError('failed to modify user (code %s)' % \
