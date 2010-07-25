@@ -1,3 +1,0 @@
-Accounts:
-- Replace manual XML string building with XML object-composition. Use
-  ElementTree instead of DOM.
