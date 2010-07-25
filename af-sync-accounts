@@ -31,10 +31,21 @@ import pwd
 import grp
 import sys
 import codecs
+import subprocess
 
 sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
+
+def call_hook(hook_script):
+    try:
+        retcode = subprocess.call(hook_script, shell=True)
+        if retcode < 0:
+            print "Hook script was terminated by signal", -retcode
+        elif retcode != 0:
+            print "Hook script returned", retcode
+    except OSError, e:
+            print "Execution of hook script failed:", e
 
 def main():
     parser = OptionParser()
@@ -47,6 +58,8 @@ def main():
             help = "Password for the Aficio printer")
     parser.add_option("--simulate", action = "store_true",
             dest = "simulate", help = "Only simulate the actions")
+    parser.add_option("--hook-enabled", action = "store", dest = "hook_enabled",
+            help = "Script hook called when at least one account was enabled.")
     (options, args) = parser.parse_args()
     if len(args) != 0:
         parser.error("incorrect number of arguments")
@@ -58,6 +71,8 @@ def main():
         cf.set('printer', 'hostname', options.hostname)
     if options.passwd is not None:
         cf.set('printer', 'passwd', options.passwd)
+    if options.hook_enabled is not None:
+        cf.set('unix_sync', 'hook_enabled', options.hook_enabled)
 
     if not cf.has_section('printer') or \
             not cf.has_option('printer', 'hostname'):
@@ -182,6 +197,19 @@ def main():
         acct.restrict = acct_restr
         if not options.simulate:
             um.set_user_info(acct)
+
+    # Call the hook script iff at least one account was enabled or disabled.
+    if (len(users_to_add) > 0 or \
+            len(accts_to_activate) > 0 or \
+            len(accts_to_disable) > 0) and \
+            cf.has_option('unix_sync', 'hook_enabled'):
+        hook_script = cf.get('unix_sync', 'hook_enabled')
+        if not options.simulate:
+            print "Calling hook '%s' ..." % hook_script
+            call_hook(hook_script)
+        else:
+            print "Skipping hook '%s', because we're only simulating." % \
+                    hook_script
 
 if __name__ == '__main__':
     main()
