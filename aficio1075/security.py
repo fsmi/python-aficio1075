@@ -37,8 +37,8 @@ def _decode_char(c):
     val = ord(c)
     return chr(((val << 2) | ((val & (2**6 + 2**7)) >> 6)) & 0xff)
 
-def _mangle_password(str, func):
-    return ''.join(map(lambda x: func(x), str))
+def _mangle_password(mstr, func):
+    return ''.join([func(x) for x in mstr])
 
 def decode_password(data):
     return _mangle_password(b64decode(data), _decode_char)
