@@ -1,10 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
 
 # af-accounts -- Command-line tool to manage accounts on a Ricoh Aficio 1075.
 #
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -140,8 +139,9 @@ def main():
         if len(options.name) > accounts.User.MAX_NAME_LEN:
             parser.error("User name must not exceed %d characters" %
                     accounts.User.MAX_NAME_LEN)
-        print "Adding user %s (%u)" % (options.name, options.user_code)
-        acct = accounts.User(options.user_code, options.name, acct_restr)
+        user_name = unicode(options.name, 'utf-8')
+        print u"Adding user %s (%u)" % (user_name, options.user_code)
+        acct = accounts.User(options.user_code, user_name, acct_restr)
         um.add_user(acct)
     elif mode == 'show':
         # Show account
