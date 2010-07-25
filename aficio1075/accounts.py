@@ -353,7 +353,7 @@ class UserMaintSession(object):
             req_statistics_info=True):
         req = Element('getUserInfoRequest')
         target = SubElement(req, 'target')
-        SubElement(target, 'userCode').text = '%u' % user_code
+        SubElement(target, 'userCode').text = str(user_code)
 
         user = SubElement(req, 'user', version='1.1')
 
