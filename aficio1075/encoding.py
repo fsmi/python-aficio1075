@@ -25,13 +25,13 @@ import codecs
 
 DEFAULT_STRING_ENCODING = 'Windows-1252'
 
-def decode(str, encoding = DEFAULT_STRING_ENCODING):
+def decode(str, encoding=DEFAULT_STRING_ENCODING):
     if encoding == 'none' or encoding is None or encoding == '':
         return str
     else:
         return codecs.getdecoder(encoding)(b64decode(str))[0]
 
-def encode(str, encoding = DEFAULT_STRING_ENCODING, error = 'ignore'):
+def encode(str, encoding=DEFAULT_STRING_ENCODING, error='ignore'):
     if encoding == 'none' or encoding is None or encoding == '':
         return str
     else:
