@@ -1,3 +1,28 @@
+python-aficio1075 (0.5-1) fsmi-lenny; urgency=low
+
+  * New upstream release:
+    - af-print-accounts: remove registerFontFamily
+    - aficio1075/accounts.py: switch from (python xml, httplib2) to
+      (ElementTree, httplib)
+    - aficio1075/accounts.py: update copyright notice and encoding header.
+    - aficio1075/security.py: switch away from using map() and a lambda
+      func
+    - af-accounts: Support adding utf-8 users
+    - af-accounts: switch to unicode strings for consistency's sake
+    - aficio1075/delivery_input.py: switch from (python xml, httplib2) to
+      (ET, httplib)
+    - aficio1075/accounts.py: use ET to build the XML
+    - aficio1075/delivery_input.py: use ET object composition instead of
+      hand-crafted XML
+    - TODO: completed all TODOs, remove.
+    - aficio1075/accounts.py: allow int and str user codes
+    - af-sync-accounts: add hook script parameter / option
+    - af-sync-accounts: replace filter() with generic list handling.
+    - aficio1075.accounts.UserStatistics: Allow setting of statistics.
+    - aficio1075.accounts: allow statistics to be modified
+
+ -- Fabian Knittel <fabian.knittel@avona.com>  Mon, 26 Jul 2010 18:05:19 +0200
+
 python-aficio1075 (0.4-2) fsmi-lenny; urgency=low
 
   * Add missing dependency for python-unidecode. Needed by af-sync-ppds.
