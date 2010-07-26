@@ -67,13 +67,21 @@ class UserStatistics(object):
         self._print_a3 = print_a3
         self._scan_a4 = scan_a4
         self._scan_a3 = scan_a3
-        self.modified = False
+        self.modified = True
 
     def __repr__(self):
         return '<UserStatistics c%u,%u p%u,%u s%u,%u %s>' % (self.copy_a4,
                 self.copy_a3, self.print_a4, self.print_a3,
                 self.scan_a4, self.scan_a3,
                 'modified' if self.modified else 'unmodified')
+
+    def set_zero(self):
+        self.copy_a4 = 0
+        self.copy_a3 = 0
+        self.print_a4 = 0
+        self.print_a3 = 0
+        self.scan_a4 = 0
+        self.scan_a3 = 0
 
     def get_copy_a4(self):
         return self._copy_a4
@@ -137,7 +145,7 @@ class UserStatistics(object):
     @staticmethod
     def from_xml(stats_node):
         assert stats_node.tag == 'statisticsInfo'
-        return UserStatistics(
+        stats = UserStatistics(
                 copy_a4=int(_get_text_node(
                     'copyInfo/monochrome/singleSize', stats_node)),
                 copy_a3=int(_get_text_node(
@@ -150,6 +158,24 @@ class UserStatistics(object):
                     'scannerInfo/monochrome/singleSize', stats_node)),
                 scan_a3=int(_get_text_node(
                     'scannerInfo/monochrome/doubleSize', stats_node)))
+        stats.modified = False
+        return stats
+
+    @staticmethod
+    def _sub_info_to_xml(parent_node, single_val, double_val):
+        mono = SubElement(parent, 'monochrome')
+        SubElement(mono, 'singleSize').text = '%u' % single_val
+        SubElement(mono, 'doubleSize').text = '%u' % double_val
+
+    def to_xml(self):
+        stats_node = Element('statisticsInfo')
+        self._sub_info_to_xml(SubElement(stats_node, 'copyInfo'),
+                self.copy_a4, self.copy_a3)
+        self._sub_info_to_xml(SubElement(stats_node, 'printerInfo'),
+                self.copy_a4, self.copy_a3)
+        self._sub_info_to_xml(SubElement(stats_node, 'scannerInfo'),
+                self.copy_a4, self.copy_a3)
+        return stats_node
 
 
 class UserRestrict(object):
@@ -237,6 +263,8 @@ class User(object):
         """Inform the object, that the data was flushed to the server."""
         if hasattr(self, '_orig_user_code'):
             del self._orig_user_code
+        if self.stats is not None and self.stats.modified:
+            self.stats.modified = False
 
     def _set_name(self, name):
         if len(name) > self.MAX_NAME_LEN:
@@ -259,6 +287,8 @@ class User(object):
             SubElement(user, 'userCodeName', enc=DEFAULT_STRING_ENCODING)\
                     .text = encode(self.name, DEFAULT_STRING_ENCODING)
         if self.restrict is not None:
+            user.append(self.restrict.to_xml())
+        if self.stats is not None and self.stats.modified:
             user.append(self.restrict.to_xml())
         return user
 
