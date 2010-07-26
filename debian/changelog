@@ -20,6 +20,7 @@ python-aficio1075 (0.5-1) fsmi-lenny; urgency=low
     - af-sync-accounts: replace filter() with generic list handling.
     - aficio1075.accounts.UserStatistics: Allow setting of statistics.
     - aficio1075.accounts: allow statistics to be modified
+  * Drop dependencies on python-httplib2 and python-xml.
 
  -- Fabian Knittel <fabian.knittel@avona.com>  Mon, 26 Jul 2010 18:05:19 +0200
 
