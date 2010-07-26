@@ -61,17 +61,61 @@ class UserMaintError(RuntimeError):
 class UserStatistics(object):
     def __init__(self, copy_a4=0, copy_a3=0, print_a4=0,
             print_a3=0, scan_a4=0, scan_a3=0):
-        self.copy_a4 = copy_a4
-        self.copy_a3 = copy_a3
-        self.print_a4 = print_a4
-        self.print_a3 = print_a3
-        self.scan_a4 = scan_a4
-        self.scan_a3 = scan_a3
+        self._copy_a4 = copy_a4
+        self._copy_a3 = copy_a3
+        self._print_a4 = print_a4
+        self._print_a3 = print_a3
+        self._scan_a4 = scan_a4
+        self._scan_a3 = scan_a3
+        self.modified = False
 
     def __repr__(self):
-        return '<UserStatistics c%u,%u p%u,%u s%u,%u>' % (self.copy_a4,
+        return '<UserStatistics c%u,%u p%u,%u s%u,%u %s>' % (self.copy_a4,
                 self.copy_a3, self.print_a4, self.print_a3,
-                self.scan_a4, self.scan_a3)
+                self.scan_a4, self.scan_a3,
+                'modified' if self.modified else 'unmodified')
+
+    def get_copy_a4(self):
+        return self._copy_a4
+    def set_copy_a4(self, val):
+        self.modified = True
+        self._copy_a4 = val
+    copy_a4 = property(get_copy_a4, set_copy_a4)
+
+    def get_copy_a3(self):
+        return self._copy_a3
+    def set_copy_a3(self, val):
+        self.modified = True
+        self._copy_a3 = val
+    copy_a3 = property(get_copy_a3, set_copy_a3)
+
+    def get_print_a4(self):
+        return self._print_a4
+    def set_print_a4(self, val):
+        self.modified = True
+        self._print_a4 = val
+    print_a4 = property(get_print_a4, set_print_a4)
+
+    def get_print_a3(self):
+        return self._print_a3
+    def set_print_a3(self, val):
+        self.modified = True
+        self._print_a3 = val
+    print_a3 = property(get_print_a3, set_print_a3)
+
+    def get_scan_a4(self):
+        return self._scan_a4
+    def set_scan_a4(self, val):
+        self.modified = True
+        self._scan_a4 = val
+    scan_a4 = property(get_scan_a4, set_scan_a4)
+
+    def get_scan_a3(self):
+        return self._scan_a3
+    def set_scan_a3(self, val):
+        self.modified = True
+        self._scan_a3 = val
+    scan_a3 = property(get_scan_a3, set_scan_a3)
 
     @property
     def copy_a4_total(self):
@@ -94,17 +138,17 @@ class UserStatistics(object):
     def from_xml(stats_node):
         assert stats_node.tag == 'statisticsInfo'
         return UserStatistics(
-                copy_a4 = int(_get_text_node(
+                copy_a4=int(_get_text_node(
                     'copyInfo/monochrome/singleSize', stats_node)),
-                copy_a3 = int(_get_text_node(
+                copy_a3=int(_get_text_node(
                     'copyInfo/monochrome/doubleSize', stats_node)),
-                print_a4 = int(_get_text_node(
+                print_a4=int(_get_text_node(
                     'printerInfo/monochrome/singleSize', stats_node)),
-                print_a3 = int(_get_text_node(
+                print_a3=int(_get_text_node(
                     'printerInfo/monochrome/doubleSize', stats_node)),
-                scan_a4 = int(_get_text_node(
+                scan_a4=int(_get_text_node(
                     'scannerInfo/monochrome/singleSize', stats_node)),
-                scan_a3 = int(_get_text_node(
+                scan_a3=int(_get_text_node(
                     'scannerInfo/monochrome/doubleSize', stats_node)))
 
 
