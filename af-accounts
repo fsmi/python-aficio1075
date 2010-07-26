@@ -1,10 +1,9 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
 
 # af-accounts -- Command-line tool to manage accounts on a Ricoh Aficio 1075.
 #
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -43,9 +42,9 @@ def show_acct(acct):
         perms.append('scan')
     if acct.restrict.grant_storage:
         perms.append('storage')
-    print '%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
-    print '      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
-            'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
+    print u'%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
+    print u'      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
+            u'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
             acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
             acct.stats.scan_a3)
 
@@ -104,33 +103,33 @@ def main():
         # Disable account
         acct = um.get_user_info(options.user_code)
         if acct.restrict.has_any_permissions():
-            print "Disabling user %s (%u)" % (acct.name, acct.user_code)
+            print u"Disabling user %s (%u)" % (acct.name, acct.user_code)
             acct.restrict.revoke_all()
             um.set_user_info(acct)
         else:
-            print "User %s (%u) already disabled" % (acct.name, acct.user_code)
+            print u"User %s (%u) already disabled" % (acct.name, acct.user_code)
     elif mode == 'delete':
         # Delete account
         acct = um.get_user_info(options.user_code)
         if acct.stats.is_zero():
-            print "Removing user %s (%u)" % (acct.name, acct.user_code)
+            print u"Removing user %s (%u)" % (acct.name, acct.user_code)
             um.delete_user(acct.user_code)
         else:
-            print "User %s (%u) has non-zero counters. Cannot delete." % (
+            print u"User %s (%u) has non-zero counters. Cannot delete." % (
                     acct.name, acct.user_code)
     elif mode == 'enable':
         # Enable account
         acct = um.get_user_info(options.user_code)
         if not acct.restrict.has_any_permissions():
-            print "Enabling user %s (%u)" % (acct.name, acct.user_code)
+            print u"Enabling user %s (%u)" % (acct.name, acct.user_code)
             acct.restrict = acct_restr
             um.set_user_info(acct)
         else:
-            print "User %s (%u) already enabled" % (acct.name, acct.user_code)
+            print u"User %s (%u) already enabled" % (acct.name, acct.user_code)
     elif mode == 'reset':
         # Reset the counters for the account by removing and adding it.
         acct = um.get_user_info(options.user_code)
-        print "Resetting user %s (%u)" % (acct.name, acct.user_code)
+        print u"Resetting user %s (%u)" % (acct.name, acct.user_code)
         um.delete_user(acct.user_code)
         um.add_user(acct)
     elif mode == 'add':
@@ -140,8 +139,9 @@ def main():
         if len(options.name) > accounts.User.MAX_NAME_LEN:
             parser.error("User name must not exceed %d characters" %
                     accounts.User.MAX_NAME_LEN)
-        print "Adding user %s (%u)" % (options.name, options.user_code)
-        acct = accounts.User(options.user_code, options.name, acct_restr)
+        user_name = unicode(options.name, 'utf-8')
+        print u"Adding user %s (%u)" % (user_name, options.user_code)
+        acct = accounts.User(options.user_code, user_name, acct_restr)
         um.add_user(acct)
     elif mode == 'show':
         # Show account

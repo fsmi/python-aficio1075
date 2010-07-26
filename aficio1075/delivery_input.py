@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
 
 # aficio1075/delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of
 #   Ricoh Aficio 1075
 #
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -20,28 +19,33 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-# Based on bash scripts and XML snippets by
-# Thomas Witzenrath <thomas.witzenrath@fsmi.uni-karlsruhe.de>.
-
-# Depends on python-httplib2, python-xml
-
-import httplib2
+import httplib
 import codecs
 import socket
-from xml.dom.ext.reader import Sax2
-from xml import xpath
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement
 from aficio1075.security import encode_password
 from aficio1075.encoding import encode, decode
 
 
-def _get_text_node(path, node):
-    return xpath.Evaluate('string(%s)' % path, node)
+def _get_text_node(path, base_node):
+    return base_node.find(path).text
 
 class DeliveryInputException:
     def __init__(self, reason):
         self.reason = reason
     def __str__(self):
         return self.reason
+
+def soap_name(tag):
+    return '{http://schemas.xmlsoap.org/soap/envelope/}%s' % tag
+
+def di_name(tag):
+    return '{http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput}%s' % tag
+
+def add_encoded_str_tags(parent, encoded_str):
+    SubElement(parent, 'encoding').text = 'CHARENC_WINDOWS_1252'
+    SubElement(parent, 'string').text = encoded_str
 
 class DeliveryInput(object):
     def __init__(self, *args, **kwargs):
@@ -52,76 +56,59 @@ class DeliveryInput(object):
 
     def _send_request(self, func_name, body):
         headers = {
-            'Content-Type': 'text/xml; charset=UTF-8',
-            'SOAPAction': 'http://www.ricoh.co.jp' \
+            'Content-Type':'text/xml; charset=UTF-8',
+            'SOAPAction':'http://www.ricoh.co.jp' \
                     '/xmlns/soap/rdh/deliveryinput#%s' % func_name}
-        uri = "http://%s:%d/DeliveryInput" % \
-            (self.__host, self.__port)
 
-        h = httplib2.Http()
-        (result, content) = h.request(uri, "POST", body = body,
-                    headers = headers)
+        conn = httplib.HTTPConnection(self.__host, self.__port)
+        conn.request("POST", "/DeliveryInput", body, headers)
+        resp = conn.getresponse()
 
-        reader = Sax2.Reader()
-        doc = reader.fromString(content)
+        doc = ET.XML(resp.read())
         return doc
 
     def _perform_operation(self, func_name, oper):
-        body = """<?xml version="1.0" encoding="UTF-8" ?>
-        <s:Envelope
-            xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"
-            s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-          <s:Body>
-            %s
-          </s:Body>
-        </s:Envelope>
-        """ % oper
-        return self._send_request(func_name, body)
+        base = Element(soap_name('Envelope'))
+        base.attrib[soap_name('encodingStyle')] = \
+                "http://schemas.xmlsoap.org/soap/encoding/"
+        body = SubElement(base, soap_name('Body'))
+        body.append(oper)
+
+        xml_str = '<?xml version="1.0" encoding="UTF-8" ?>\n' + \
+                ET.tostring(base)
+        return self._send_request(func_name, xml_str)
 
     def authenticate(self, passwd):
         encoded_auth_token = encode_password(passwd)
 
-        body = """
-            <di:authenticate
-                xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
-              <password>
-                <encoding>CHARENC_WINDOWS_1252</encoding>
-                <string>%s</string>
-              </password>
-            </di:authenticate>
-        """ % encoded_auth_token
-        doc = self._perform_operation('authenticate', body)
+        auth = Element(di_name('authenticate'))
+        pw = SubElement(auth, 'password')
+        add_encoded_str_tags(pw, encoded_auth_token)
+        doc = self._perform_operation('authenticate', auth)
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Authentication failed')
 
-        self.__auth_cookie = _get_text_node('//*/ticket_out/string', doc)
+        self.__auth_cookie = _get_text_node('.//*/ticket_out/string', doc)
 
     def _ticket_xml(self):
         if self.__auth_cookie is None:
             raise DeliveryInputException('Authentication required needed')
 
-        return """
-              <ticket>
-                <encoding>CHARENC_WINDOWS_1252</encoding>
-                <string>%s</string>
-              </ticket>
-        """ % self.__auth_cookie
+        ticket = Element('ticket')
+        add_encoded_str_tags(ticket, self.__auth_cookie)
+        return ticket
 
-    def _encoded_host(self, host):
+    def _encoded_host_xml(self, host):
         if host is None:
             host_ip_addr = '0.0.0.0'
         else:
             host_ip_addr = socket.gethostbyname(host)
 
         encoded_host = encode(host_ip_addr)
-
-        return """
-              <address>
-                <encoding>CHARENC_WINDOWS_1252</encoding>
-                <string>%s</string>
-              </address>
-        """ % encoded_host
+        address = Element('address')
+        add_encoded_str_tags(address, encoded_host)
+        return address
 
     def set_delivery_service(self, host):
         """
@@ -129,42 +116,33 @@ class DeliveryInput(object):
         printer currently considers to be the delivery service host, the printer
         retrieves the delivery lists.
         """
-        body = """
-            <di:setDeliveryService
-                xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
-              %s
-              %s
-              <capability>
-                <type>3</type>
-                <commentSupported>false</commentSupported>
-                <directMailAddressSupported>false</directMailAddressSupported>
-                <mdnSupported>false</mdnSupported>
-                <autoSynchronizeSupported>true</autoSynchronizeSupported>
-                <faxDeliverySupported>false</faxDeliverySupported>
-              </capability>
-            </di:setDeliveryService>
-        """ % (self._ticket_xml(), self._encoded_host(host))
-        doc = self._perform_operation('setDeliveryService', body)
+        oper = Element(di_name('setDeliveryService'))
+        oper.append(self._ticket_xml())
+        oper.append(self._encoded_host_xml(host))
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        cap = SubElement(oper, 'capability')
+        SubElement(cap, 'commentSupported').text = 'false'
+        SubElement(cap, 'directMailAddressSupported').text = 'false'
+        SubElement(cap, 'mdnSupported').text = 'false'
+        SubElement(cap, 'autoSynchronizeSupported').text = 'true'
+        SubElement(cap, 'faxDeliverySupported').text = 'false'
+
+        doc = self._perform_operation('setDeliveryService', oper)
+
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')
 
     def get_delivery_service(self):
-        body = """
-            <di:getDeliveryService
-                xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
-              %s
-            </di:getDeliveryService>
+        oper = Element(di_name('getDeliveryService'))
+        oper.append(self._ticket_xml())
 
-        """ % self._ticket_xml()
+        doc = self._perform_operation('getDeliveryService', oper)
 
-        doc = self._perform_operation('getDeliveryService', body)
-
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')
 
         delivery_host_ip_addr = decode(
-                _get_text_node('//*/address_out/string', doc))
+                _get_text_node('.//*/address_out/string', doc))
 
         if delivery_host_ip_addr == '0.0.0.0':
             return None
@@ -182,15 +160,13 @@ class DeliveryInput(object):
         generation number. Therefore the generation number appears to be
         unnecessary for this particular request.)
         """
-        body = """
-            <di:synchronize
-                xmlns:di="http://www.ricoh.co.jp/xmlns/soap/rdh/deliveryinput">
-              %s
-              <generation>%d</generation>
-              %s
-            </di:synchronize>
-        """ % (self._ticket_xml(), generation_nr, self._encoded_host(host))
-        doc = self._perform_operation('synchronize', body)
+        oper = Element(di_name('synchronize'))
+        oper.append(self._ticket_xml())
 
-        if _get_text_node('//*/returnValue', doc) != u'DIRC_OK':
+        SubElement(oper, 'generation').text = '%d' % generation_nr
+        oper.append(self._encoded_host_xml(host))
+
+        doc = self._perform_operation('synchronize', oper)
+
+        if _get_text_node('.//*/returnValue', doc) != u'DIRC_OK':
             raise DeliveryInputException('Failed to configure delivery service')

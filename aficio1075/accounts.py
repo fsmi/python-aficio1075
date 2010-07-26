@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
 
 # aficio1075/accounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio
 #   1075 concerning account management.
 #
 # Copyright (C) 2007 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -24,98 +23,164 @@
 # Based on bash scripts and XML snippets by
 # Thomas Witzenrath <thomas.witzenrath@fsmi.uni-karlsruhe.de>.
 
-# Depends on python-httplib2, python-xml
-
-import httplib2
+import httplib
 import codecs
-import socket
-from xml.dom.ext.reader import Sax2
-from xml import xpath
+import xml.etree.ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement
 import time
 from aficio1075 import security
 from aficio1075.encoding import encode, decode, DEFAULT_STRING_ENCODING
 
 
-def _get_operation_result(doc, oper_name):
-    operation_node = doc.getElementsByTagName('operationResult')
-    if len(operation_node) == 0:
+def _get_text_node(path, base_node):
+    return base_node.find(path).text
+
+def _get_operation_result(operation_node, oper_name):
+    if operation_node.tag != 'operationResult':
         return 'unknown failure'
-    operation_node = operation_node[0]
 
     success = _get_text_node(
             '%s/isSucceeded' % oper_name, operation_node) == 'true'
     if success:
         return None
     else:
-        result_node = operation_node.getElementsByTagName(oper_name)
-        if len(result_node) == 0:
-            result_node = operation_node.getElementsByTagName('serverError')
-            if len(result_node) == 0:
+        result_node = operation_node.find(oper_name)
+        if result_node is None:
+            result_node = operation_node.find('serverError')
+            if result_node is None:
                 return 'unknown failure'
-        result_node = result_node[0]
 
         error_code = _get_text_node('errorCode', result_node)
         return error_code
 
-def _get_text_node(path, base_node):
-    return xpath.Evaluate('string(%s)' % path, base_node)
-
 class UserMaintError(RuntimeError):
-    def __init__(self, msg, code = None):
+    def __init__(self, msg, code=None):
         RuntimeError.__init__(self, msg)
         self.code = code
 
 class UserStatistics(object):
-    pass
-    def __init__(self, copy_a4 = 0, copy_a3 = 0, print_a4 = 0,
-            print_a3 = 0, scan_a4 = 0, scan_a3 = 0):
-        self.copy_a4 = copy_a4
-        self.copy_a3 = copy_a3
-        self.print_a4 = print_a4
-        self.print_a3 = print_a3
-        self.scan_a4 = scan_a4
-        self.scan_a3 = scan_a3
+    def __init__(self, copy_a4=0, copy_a3=0, print_a4=0,
+            print_a3=0, scan_a4=0, scan_a3=0):
+        self._copy_a4 = copy_a4
+        self._copy_a3 = copy_a3
+        self._print_a4 = print_a4
+        self._print_a3 = print_a3
+        self._scan_a4 = scan_a4
+        self._scan_a3 = scan_a3
+        self.modified = True
 
     def __repr__(self):
-        return '<UserStatistics c%u,%u p%u,%u s%u,%u>' % (self.copy_a4,
+        return '<UserStatistics c%u,%u p%u,%u s%u,%u %s>' % (self.copy_a4,
                 self.copy_a3, self.print_a4, self.print_a3,
-                self.scan_a4, self.scan_a3)
+                self.scan_a4, self.scan_a3,
+                'modified' if self.modified else 'unmodified')
 
-    def get_copy_a4_total(self):
+    def set_zero(self):
+        self.copy_a4 = 0
+        self.copy_a3 = 0
+        self.print_a4 = 0
+        self.print_a3 = 0
+        self.scan_a4 = 0
+        self.scan_a3 = 0
+
+    def get_copy_a4(self):
+        return self._copy_a4
+    def set_copy_a4(self, val):
+        self.modified = True
+        self._copy_a4 = val
+    copy_a4 = property(get_copy_a4, set_copy_a4)
+
+    def get_copy_a3(self):
+        return self._copy_a3
+    def set_copy_a3(self, val):
+        self.modified = True
+        self._copy_a3 = val
+    copy_a3 = property(get_copy_a3, set_copy_a3)
+
+    def get_print_a4(self):
+        return self._print_a4
+    def set_print_a4(self, val):
+        self.modified = True
+        self._print_a4 = val
+    print_a4 = property(get_print_a4, set_print_a4)
+
+    def get_print_a3(self):
+        return self._print_a3
+    def set_print_a3(self, val):
+        self.modified = True
+        self._print_a3 = val
+    print_a3 = property(get_print_a3, set_print_a3)
+
+    def get_scan_a4(self):
+        return self._scan_a4
+    def set_scan_a4(self, val):
+        self.modified = True
+        self._scan_a4 = val
+    scan_a4 = property(get_scan_a4, set_scan_a4)
+
+    def get_scan_a3(self):
+        return self._scan_a3
+    def set_scan_a3(self, val):
+        self.modified = True
+        self._scan_a3 = val
+    scan_a3 = property(get_scan_a3, set_scan_a3)
+
+    @property
+    def copy_a4_total(self):
         return self.copy_a4 + (self.copy_a3 * 2)
 
-    def get_print_a4_total(self):
+    @property
+    def print_a4_total(self):
         return self.print_a4 + (self.print_a3 * 2)
 
-    def get_scan_a4_total(self):
+    @property
+    def scan_a4_total(self):
         return self.scan_a4 + (self.scan_a3 * 2)
 
     def is_zero(self):
-        return self.copy_a4 == 0 and self.copy_a3 == 0 and \
-                self.print_a4 == 0 and self.print_a3 == 0 and \
-                self.scan_a4 == 0 and self.scan_a3 == 0
+        return self.copy_a4_total == 0 and \
+                self.print_a4_total == 0 and \
+                self.scan_a4_total == 0
 
     @staticmethod
     def from_xml(stats_node):
-        assert stats_node.tagName == 'statisticsInfo'
-        return UserStatistics(
-                copy_a4 = int(_get_text_node(
+        assert stats_node.tag == 'statisticsInfo'
+        stats = UserStatistics(
+                copy_a4=int(_get_text_node(
                     'copyInfo/monochrome/singleSize', stats_node)),
-                copy_a3 = int(_get_text_node(
+                copy_a3=int(_get_text_node(
                     'copyInfo/monochrome/doubleSize', stats_node)),
-                print_a4 = int(_get_text_node(
+                print_a4=int(_get_text_node(
                     'printerInfo/monochrome/singleSize', stats_node)),
-                print_a3 = int(_get_text_node(
+                print_a3=int(_get_text_node(
                     'printerInfo/monochrome/doubleSize', stats_node)),
-                scan_a4 = int(_get_text_node(
+                scan_a4=int(_get_text_node(
                     'scannerInfo/monochrome/singleSize', stats_node)),
-                scan_a3 = int(_get_text_node(
+                scan_a3=int(_get_text_node(
                     'scannerInfo/monochrome/doubleSize', stats_node)))
+        stats.modified = False
+        return stats
+
+    @staticmethod
+    def _sub_info_to_xml(parent_node, single_val, double_val):
+        mono = SubElement(parent, 'monochrome')
+        SubElement(mono, 'singleSize').text = '%u' % single_val
+        SubElement(mono, 'doubleSize').text = '%u' % double_val
+
+    def to_xml(self):
+        stats_node = Element('statisticsInfo')
+        self._sub_info_to_xml(SubElement(stats_node, 'copyInfo'),
+                self.copy_a4, self.copy_a3)
+        self._sub_info_to_xml(SubElement(stats_node, 'printerInfo'),
+                self.copy_a4, self.copy_a3)
+        self._sub_info_to_xml(SubElement(stats_node, 'scannerInfo'),
+                self.copy_a4, self.copy_a3)
+        return stats_node
 
 
 class UserRestrict(object):
-    def __init__(self, grant_copy = False, grant_printer = False,
-            grant_scanner = False, grant_storage = False):
+    def __init__(self, grant_copy=False, grant_printer=False,
+            grant_scanner=False, grant_storage=False):
         self.grant_copy = grant_copy
         self.grant_printer = grant_printer
         self.grant_scanner = grant_scanner
@@ -124,12 +189,6 @@ class UserRestrict(object):
     def __repr__(self):
         return '<UserRestrict c%dp%ds%dst%d>' % (self.grant_copy,
                 self.grant_printer, self.grant_scanner, self.grant_storage)
-
-    def __avail_str(self, is_available):
-        if is_available:
-            return '<available/>'
-        else:
-            return '<restricted/>'
 
     def revoke_all(self):
         """Revoke all privileges."""
@@ -144,43 +203,40 @@ class UserRestrict(object):
                 self.grant_storage
 
     def to_xml(self):
-        return """
-            <restrictInfo>
-                <copyInfo>
-                    <monochrome>%s</monochrome>
-                </copyInfo>
-                <printerInfo>
-                    <monochrome>%s</monochrome>
-                </printerInfo>
-                <scannerInfo>
-                    <scan>%s</scan>
-                </scannerInfo>
-                <localStorageInfo>
-                    <plot>%s</plot>
-                </localStorageInfo>
-            </restrictInfo>""" % (self.__avail_str(self.grant_copy),
-                self.__avail_str(self.grant_printer),
-                self.__avail_str(self.grant_scanner),
-                self.__avail_str(self.grant_storage))
+        def _avail(parent, is_available):
+            if is_available:
+                return SubElement(parent, 'available')
+            else:
+                return SubElement(parent, 'restricted')
+
+        restrict_node = Element('restrictInfo')
+        _avail(SubElement(SubElement(restrict_node, 'copyInfo'),
+                'monochrome'), self.grant_copy)
+        _avail(SubElement(SubElement(restrict_node, 'printerInfo'),
+                'monochrome'), self.grant_printer)
+        _avail(SubElement(SubElement(restrict_node, 'scannerInfo'),
+                'scan'), self.grant_scanner)
+        _avail(SubElement(SubElement(restrict_node, 'localStorageInfo'),
+                'plot'), self.grant_storage)
+        return restrict_node
 
     @staticmethod
     def from_xml(restrict_node):
-        assert restrict_node.tagName == 'restrictInfo'
+        assert restrict_node.tag == 'restrictInfo'
         return UserRestrict(
-                grant_copy = len(xpath.Evaluate(
-                        'copyInfo/monochrome/available', restrict_node)) == 1,
-                grant_printer = len(xpath.Evaluate(
-                        'printerInfo/monochrome/available',
-                        restrict_node)) == 1,
-                grant_scanner = len(xpath.Evaluate(
-                        'scannerInfo/scan/available', restrict_node)) == 1,
-                grant_storage = len(xpath.Evaluate(
-                        'localStorageInfo/plot/available', restrict_node)) == 1)
+                grant_copy=restrict_node.find(
+                        'copyInfo/monochrome/available') is not None,
+                grant_printer=restrict_node.find(
+                        'printerInfo/monochrome/available') is not None,
+                grant_scanner=restrict_node.find(
+                        'scannerInfo/scan/available') is not None,
+                grant_storage=restrict_node.find(
+                        'localStorageInfo/plot/available') is not None)
 
 class User(object):
     MAX_NAME_LEN = 20
 
-    def __init__(self, user_code, name, restrict = None, stats = None):
+    def __init__(self, user_code, name, restrict=None, stats=None):
         self.user_code = user_code
         self.name = name
         self.restrict = restrict
@@ -207,6 +263,8 @@ class User(object):
         """Inform the object, that the data was flushed to the server."""
         if hasattr(self, '_orig_user_code'):
             del self._orig_user_code
+        if self.stats is not None and self.stats.modified:
+            self.stats.modified = False
 
     def _set_name(self, name):
         if len(name) > self.MAX_NAME_LEN:
@@ -222,30 +280,29 @@ class User(object):
                 str(self.user_code), str(self.restrict), str(self.stats))
 
     def to_xml(self):
-        xml_str = """<user version="1.1">
-                    <userType>general</userType>"""
+        user = Element('user', version='1.1')
         if self.user_code is not None:
-            xml_str += '<userCode>%u</userCode>' % self.user_code
+            SubElement(user, 'userCode').text = '%u' % self.user_code
         if self.name is not None:
-            encoded_name = encode(self.name, DEFAULT_STRING_ENCODING)
-            xml_str += '<userCodeName enc="%s">%s</userCodeName>' % (
-                    DEFAULT_STRING_ENCODING, encoded_name)
+            SubElement(user, 'userCodeName', enc=DEFAULT_STRING_ENCODING)\
+                    .text = encode(self.name, DEFAULT_STRING_ENCODING)
         if self.restrict is not None:
-            xml_str += self.restrict.to_xml()
-        xml_str += '</user>'
-        return xml_str
+            user.append(self.restrict.to_xml())
+        if self.stats is not None and self.stats.modified:
+            user.append(self.restrict.to_xml())
+        return user
 
     @staticmethod
     def from_xml(user_node):
-        assert user_node.tagName == 'user' \
-                and user_node.getAttribute('version') == '1.1'
+        assert user_node.tag == 'user' and \
+                user_node.attrib['version'] == '1.1'
 
         # Load user code (if available)
-        user_code_nodes = user_node.getElementsByTagName('userCode')
-        if len(user_code_nodes) == 0:
+        user_code_node = user_node.find('userCode')
+        if user_code_node is None:
             user_code = None
         else:
-            user_code = _get_text_node('.', user_code_nodes[0])
+            user_code = user_code_node.text
             # 'other' is a special case.
             if user_code == 'other':
                 user_code = 0
@@ -253,27 +310,27 @@ class User(object):
             else:
                 user_code = int(user_code)
                 # Load user code name (if available)
-                code_name_nodes = user_node.getElementsByTagName('userCodeName')
-                if len(code_name_nodes) == 0:
+                code_name_node = user_node.find('userCodeName')
+                if code_name_node is None:
                     name = None
                 else:
-                    name = decode(_get_text_node('.', code_name_nodes[0]),
-                            code_name_nodes[0].getAttribute('enc'))
+                    name = decode(code_name_node.text,
+                            code_name_node.attrib['enc'])
 
         # Load sub-data (if available)
-        restrict_nodes = user_node.getElementsByTagName('restrictInfo')
-        if len(restrict_nodes) == 0:
+        restrict_node = user_node.find('restrictInfo')
+        if restrict_node is None:
             restrict = None
         else:
-            restrict = UserRestrict.from_xml(restrict_nodes[0])
-        stats_nodes = user_node.getElementsByTagName('statisticsInfo')
-        if len(stats_nodes) == 0:
+            restrict = UserRestrict.from_xml(restrict_node)
+        stats_node = user_node.find('statisticsInfo')
+        if stats_node is None:
             stats = None
         else:
-            stats = UserStatistics.from_xml(stats_nodes[0])
+            stats = UserStatistics.from_xml(stats_node)
 
-        return User(user_code = user_code, name = name, restrict = restrict,
-                stats = stats)
+        return User(user_code=user_code, name=name, restrict=restrict,
+                stats=stats)
 
 class UserMaintSession(object):
     """
@@ -285,7 +342,7 @@ class UserMaintSession(object):
     """
     BUSY_CODE = 'systemBusy'
 
-    def __init__(self, passwd, host, port = 80, retry_busy = False):
+    def __init__(self, passwd, host, port=80, retry_busy=False):
         self.passwd = passwd
         self.host = host
         self.port = port
@@ -293,24 +350,22 @@ class UserMaintSession(object):
 
     def _send_request(self, body):
         headers = {'Content-Type': 'text/xml;charset=us-ascii'}
-        uri = "http://%s:%d/System/usermaint/" % \
-            (self.host, self.port)
 
-        h = httplib2.Http()
-        (result, content) = h.request(uri, "POST", body = body,
-                headers = headers)
+        conn = httplib.HTTPConnection(self.host, self.port)
+        conn.request("POST", "/System/usermaint/", body, headers)
+        resp = conn.getresponse()
 
-        reader = Sax2.Reader()
-        doc = reader.fromString(content)
+        doc = ET.XML(resp.read())
         return doc
 
     def _perform_operation(self, oper):
-        body = """<?xml version='1.0' encoding='us-ascii'?>
-            <operation>
-                <authorization>%s</authorization>
-            %s
-            </operation>
-        """ % (security.encode_password(self.passwd), oper)
+        base = Element('operation')
+        SubElement(base, 'authorization').text = \
+                security.encode_password(self.passwd)
+        base.append(oper)
+
+        body = "<?xml version='1.0' encoding='us-ascii'?>\n" + \
+                ET.tostring(base)
         return self._send_request(body)
 
     def _perform_checked_operation(self, oper, result_name):
@@ -325,72 +380,67 @@ class UserMaintSession(object):
 
     def add_user(self, user):
         """Add a user account."""
-        body = """<addUserRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                    </target>
-                    %s
-                </addUserRequest>
-        """ % (user.user_code, user.to_xml())
-        doc, error_code = self._perform_checked_operation(body, 'addUserResult')
+        req = Element('addUserRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user.user_code
+        req.append(user.to_xml())
+
+        doc, error_code = self._perform_checked_operation(req, 'addUserResult')
         if error_code is not None:
             raise UserMaintError('failed to add user (code %s)' %\
-                    error_code, code = error_code)
+                    error_code, code=error_code)
         user.notify_flushed()
 
     def delete_user(self, user_code):
         """Delete a user account."""
-        body = """<deleteUserRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                    </target>
-                </deleteUserRequest>
-        """ % user_code
-        doc, error_code = self._perform_checked_operation(body,
+        req = Element('deleteUserRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user_code
+        doc, error_code = self._perform_checked_operation(req,
                 'deleteUserResult')
         if error_code is not None:
             raise UserMaintError('failed to delete user (code %s)' %\
                     error_code)
 
-    def get_user_info(self, user_code, req_user_code = True,
-            req_user_code_name = True, req_restrict_info = True,
-            req_statistics_info = True):
+    def get_user_info(self, user_code, req_user_code=True,
+            req_user_code_name=True, req_restrict_info=True,
+            req_statistics_info=True):
         """Get information about a user account.
         Returns a User instance in case the user was found or else throws a
         UserMaintError."""
         return self._get_user_info(user_code, req_user_code, req_user_code_name,
                 req_restrict_info, req_statistics_info)[0]
 
-    def get_user_infos(self, req_user_code = True,
-            req_user_code_name = True, req_restrict_info = True,
-            req_statistics_info = True):
+    def get_user_infos(self, req_user_code=True,
+            req_user_code_name=True, req_restrict_info=True,
+            req_statistics_info=True):
         """Request information about all user accounts.
         Returns a list of User instances. Throws a UserMaintError in case of an
         error."""
-        return self._get_user_info(req_user_code = req_user_code,
-                req_user_code_name = req_user_code_name,
-                req_restrict_info = req_restrict_info,
-                req_statistics_info = req_statistics_info)
+        return self._get_user_info(req_user_code=req_user_code,
+                req_user_code_name=req_user_code_name,
+                req_restrict_info=req_restrict_info,
+                req_statistics_info=req_statistics_info)
 
-    def _get_user_info(self, user_code='', req_user_code = True,
-            req_user_code_name = True, req_restrict_info = True,
-            req_statistics_info = True):
-        body = """<getUserInfoRequest>
-                    <target>
-                        <userCode>%s</userCode>
-                    </target>
-                    <user version="1.1">""" % user_code
+    def _get_user_info(self, user_code='', req_user_code=True,
+            req_user_code_name=True, req_restrict_info=True,
+            req_statistics_info=True):
+        req = Element('getUserInfoRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = str(user_code)
+
+        user = SubElement(req, 'user', version='1.1')
+
         if req_user_code:
-            body += '<userCode/>'
+            SubElement(user, 'userCode')
         if req_user_code_name:
-            body += '<userCodeName/>'
+            SubElement(user, 'userCodeName')
         if req_restrict_info:
-            body += '<restrictInfo/>'
+            SubElement(user, 'restrictInfo')
         if req_statistics_info:
-            body += '<statisticsInfo/>'
-        body += """</user>
-                </getUserInfoRequest>"""
-        doc, error_code = self._perform_checked_operation(body,
+            SubElement(user, 'statisticsInfo')
+
+        doc, error_code = self._perform_checked_operation(req,
                 'getUserInfoResult')
         if error_code is not None:
             raise UserMaintError('failed to retrieve user info (code %s)' %\
@@ -398,21 +448,19 @@ class UserMaintSession(object):
 
         users = []
         # Iterate over the users.
-        for user_node in xpath.Evaluate(
-                'operationResult/getUserInfoResult/result/user', doc):
+        for user_node in doc.findall('getUserInfoResult/result/user'):
             users.append(User.from_xml(user_node))
         return users
 
     def set_user_info(self, user):
         """Modify a user account."""
-        body = """<setUserInfoRequest>
-                    <target>
-                        <userCode>%u</userCode>
-                        <deviceId></deviceId>
-                    </target>
-                    %s
-                </setUserInfoRequest>""" % (user.orig_user_code, user.to_xml())
-        doc, error_code = self._perform_checked_operation(body,
+        req = Element('setUserInfoRequest')
+        target = SubElement(req, 'target')
+        SubElement(target, 'userCode').text = '%u' % user.orig_user_code
+        SubElement(target, 'deviceId')
+        req.append(user.to_xml())
+
+        doc, error_code = self._perform_checked_operation(req,
                 'setUserInfoResult')
         if error_code is not None:
             raise UserMaintError('failed to modify user (code %s)' % \
