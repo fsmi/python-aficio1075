@@ -48,8 +48,25 @@ def show_acct(acct):
             acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
             acct.stats.scan_a3)
 
+def dump_acct(acct):
+    print u'[user_code %d]' % acct.user_code
+    for n, v in (
+            ('name', acct.name),
+            ('restrict.grant_copy', acct.restrict.grant_copy),
+            ('restrict.grant_printer', acct.restrict.grant_printer),
+            ('restrict.grant_scanner', acct.restrict.grant_scanner),
+            ('restrict.grant_storage', acct.restrict.grant_storage),
+            ('stats.copy_a4', acct.stats.copy_a4),
+            ('stats.copy_a3', acct.stats.copy_a3),
+            ('stats.print_a4', acct.stats.print_a4),
+            ('stats.print_a3', acct.stats.print_a3),
+            ('stats.scan_a4', acct.stats.scan_a4),
+            ('stats.scan_a3', acct.stats.scan_a3)):
+        print u'%s = %s' % (n, v)
+
 def main():
-    valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset' ]
+    valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset',
+            'dump' ]
 
     usage = "usage: %prog [options] (" + "|".join(valid_modes) + ")"
 
@@ -63,7 +80,7 @@ def main():
             help = "Password for the Aficio printer")
     parser.add_option("--user-code", action = "store", type = "int",
             dest = "user_code",
-            help = "The user code (mandatory for all commands except show)")
+            help = "The user code (mandatory for all commands except show and dump)")
     parser.add_option("--user-name", action = "store", dest = "name",
             help = "The user's name")
     (options, args) = parser.parse_args()
@@ -89,7 +106,7 @@ def main():
     if mode not in valid_modes:
         parser.error("unknown mode '%s'" % mode)
 
-    if mode != 'show' and options.user_code is None:
+    if mode not in ('show', 'dump') and options.user_code is None:
         parser.error("Expected option --user-code")
 
     um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
@@ -151,6 +168,11 @@ def main():
         else:
             for acct in um.get_user_infos():
                 show_acct(acct)
+    elif mode == 'dump':
+        if options.user_code is not None:
+            parser.error("filtering by user code is not supported for dump")
+        for acct in um.get_user_infos():
+            dump_acct(acct)
 
 if __name__ == '__main__':
     main()
