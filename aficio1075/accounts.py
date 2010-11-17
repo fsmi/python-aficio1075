@@ -163,7 +163,7 @@ class UserStatistics(object):
 
     @staticmethod
     def _sub_info_to_xml(parent_node, single_val, double_val):
-        mono = SubElement(parent, 'monochrome')
+        mono = SubElement(parent_node, 'monochrome')
         SubElement(mono, 'singleSize').text = '%u' % single_val
         SubElement(mono, 'doubleSize').text = '%u' % double_val
 
@@ -172,9 +172,9 @@ class UserStatistics(object):
         self._sub_info_to_xml(SubElement(stats_node, 'copyInfo'),
                 self.copy_a4, self.copy_a3)
         self._sub_info_to_xml(SubElement(stats_node, 'printerInfo'),
-                self.copy_a4, self.copy_a3)
+                self.print_a4, self.print_a3)
         self._sub_info_to_xml(SubElement(stats_node, 'scannerInfo'),
-                self.copy_a4, self.copy_a3)
+                self.scan_a4, self.scan_a3)
         return stats_node
 
 
@@ -289,7 +289,7 @@ class User(object):
         if self.restrict is not None:
             user.append(self.restrict.to_xml())
         if self.stats is not None and self.stats.modified:
-            user.append(self.restrict.to_xml())
+            user.append(self.stats.to_xml())
         return user
 
     @staticmethod
