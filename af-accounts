@@ -19,8 +19,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA.
 
-# Depends on aficio.accounts
-
 from optparse import OptionParser
 from aficio1075 import accounts
 from aficio1075 import config_utils
@@ -28,9 +26,12 @@ from ConfigParser import SafeConfigParser
 import sys
 import codecs
 
+plain_stdout = sys.stdout
 sys.stdout = codecs.getwriter('UTF-8')(sys.stdout)
+plain_stderr = sys.stderr
 sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 
+USER_CODE_SECTION = 'user_code'
 
 def show_acct(acct):
     perms = []
@@ -48,8 +49,9 @@ def show_acct(acct):
             acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
             acct.stats.scan_a3)
 
-def dump_acct(acct):
-    print u'[user_code %d]' % acct.user_code
+def dump_acct(cf, acct):
+    section = '%s %d' % (USER_CODE_SECTION, acct.user_code)
+    cf.add_section(section)
     for n, v in (
             ('name', acct.name),
             ('restrict.grant_copy', acct.restrict.grant_copy),
@@ -62,11 +64,32 @@ def dump_acct(acct):
             ('stats.print_a3', acct.stats.print_a3),
             ('stats.scan_a4', acct.stats.scan_a4),
             ('stats.scan_a3', acct.stats.scan_a3)):
-        print u'%s = %s' % (n, v)
+        str_value = unicode(v).encode('utf-8')
+        cf.set(section, n, str_value)
+
+def load_acct(cf, user_code):
+    section = '%s %d' % (USER_CODE_SECTION, user_code)
+    acct = accounts.User(user_code, cf.get(section, 'name').decode('utf-8'))
+    acct.restrict = accounts.UserRestrict()
+    acct.restrict.grant_copy = cf.getboolean(section, 'restrict.grant_copy')
+    acct.restrict.grant_printer = cf.getboolean(section,
+            'restrict.grant_printer')
+    acct.restrict.grant_scanner = cf.getboolean(section,
+            'restrict.grant_scanner')
+    acct.restrict.grant_storage = cf.getboolean(section,
+            'restrict.grant_storage')
+    acct.stats = accounts.UserStatistics()
+    acct.stats.copy_a4 = cf.getint(section, 'stats.copy_a4')
+    acct.stats.copy_a3 = cf.getint(section, 'stats.copy_a3')
+    acct.stats.print_a4 = cf.getint(section, 'stats.print_a4')
+    acct.stats.print_a3 = cf.getint(section, 'stats.print_a3')
+    acct.stats.scan_a4 = cf.getint(section, 'stats.scan_a4')
+    acct.stats.scan_a3 = cf.getint(section, 'stats.scan_a3')
+    return acct
 
 def main():
     valid_modes = [ 'disable', 'delete', 'enable', 'add', 'show', 'reset',
-            'dump' ]
+            'dump', 'load' ]
 
     usage = "usage: %prog [options] (" + "|".join(valid_modes) + ")"
 
@@ -80,7 +103,7 @@ def main():
             help = "Password for the Aficio printer")
     parser.add_option("--user-code", action = "store", type = "int",
             dest = "user_code",
-            help = "The user code (mandatory for all commands except show and dump)")
+            help = "The user code (mandatory for all commands except show, dump and load)")
     parser.add_option("--user-name", action = "store", dest = "name",
             help = "The user's name")
     (options, args) = parser.parse_args()
@@ -106,7 +129,7 @@ def main():
     if mode not in valid_modes:
         parser.error("unknown mode '%s'" % mode)
 
-    if mode not in ('show', 'dump') and options.user_code is None:
+    if mode not in ('show', 'dump', 'load') and options.user_code is None:
         parser.error("Expected option --user-code")
 
     um = accounts.UserMaintSession(host = cf.get('printer', 'hostname'),
@@ -171,8 +194,28 @@ def main():
     elif mode == 'dump':
         if options.user_code is not None:
             parser.error("filtering by user code is not supported for dump")
+        dump_cf = SafeConfigParser()
         for acct in um.get_user_infos():
-            dump_acct(acct)
+            dump_acct(dump_cf, acct)
+        dump_cf.write(plain_stdout)
+    elif mode == 'load':
+        load_cf = SafeConfigParser()
+        load_cf.readfp(sys.stdin)
+        if options.user_code is not None:
+            print u"Loading data for individual user code %d ..." % \
+                    (options.user_code)
+            acct = load_acct(load_cf, options.user_code)
+            um.add_user(acct)
+        else:
+            print u"Loading all user data ..."
+            SECTION_PREFIX = USER_CODE_SECTION + ' '
+            user_codes = [int(section_name[len(SECTION_PREFIX):]) \
+                    for section_name in load_cf.sections() \
+                    if section_name.startswith(SECTION_PREFIX)]
+            for user_code in user_codes:
+                acct = load_acct(load_cf, user_code)
+                show_acct(acct)
+                um.add_user(acct)
 
 if __name__ == '__main__':
     main()
