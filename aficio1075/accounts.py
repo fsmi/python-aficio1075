@@ -33,7 +33,12 @@ from aficio1075.encoding import encode, decode, DEFAULT_STRING_ENCODING
 
 
 def _get_text_node(path, base_node):
-    return base_node.find(path).text
+    if base_node is None:
+        return None
+    node = base_node.find(path)
+    if node is None:
+        return None
+    return node.text
 
 def _get_operation_result(operation_node, oper_name):
     if operation_node.tag != 'operationResult':
