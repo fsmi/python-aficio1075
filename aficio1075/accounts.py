@@ -282,7 +282,14 @@ class User(object):
     def to_xml(self):
         user = Element('user', version='1.1')
         if self.user_code is not None:
-            SubElement(user, 'userCode').text = '%u' % self.user_code
+            # 'other' is a special case.
+            if self.user_code == 0:
+                user_code_str = 'other'
+                SubElement(user, 'userType').text = 'other'
+            else:
+                user_code_str = '%u' % self.user_code
+                SubElement(user, 'userType').text = 'general'
+            SubElement(user, 'userCode').text = user_code_str
         if self.name is not None:
             SubElement(user, 'userCodeName', enc=DEFAULT_STRING_ENCODING)\
                     .text = encode(self.name, DEFAULT_STRING_ENCODING)
@@ -427,7 +434,12 @@ class UserMaintSession(object):
             req_statistics_info=True):
         req = Element('getUserInfoRequest')
         target = SubElement(req, 'target')
-        SubElement(target, 'userCode').text = str(user_code)
+        # 'other' is a special case.
+        if user_code == 0:
+            user_code_str = 'other'
+        else:
+            user_code_str = str(user_code)
+        SubElement(target, 'userCode').text = user_code_str
 
         user = SubElement(req, 'user', version='1.1')
 
@@ -456,7 +468,12 @@ class UserMaintSession(object):
         """Modify a user account."""
         req = Element('setUserInfoRequest')
         target = SubElement(req, 'target')
-        SubElement(target, 'userCode').text = '%u' % user.orig_user_code
+        # 'other' is a special case.
+        if user.orig_user_code == 0:
+            user_code_str = 'other'
+        else:
+            user_code_str = str(user.orig_user_code)
+        SubElement(target, 'userCode').text = user_code_str
         SubElement(target, 'deviceId')
         req.append(user.to_xml())
 
