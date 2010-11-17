@@ -34,16 +34,20 @@ sys.stderr = codecs.getwriter('UTF-8')(sys.stderr)
 USER_CODE_SECTION = 'user_code'
 
 def show_acct(acct):
-    perms = []
-    if acct.restrict.grant_copy:
-        perms.append('copy')
-    if acct.restrict.grant_printer:
-        perms.append('print')
-    if acct.restrict.grant_scanner:
-        perms.append('scan')
-    if acct.restrict.grant_storage:
-        perms.append('storage')
-    print u'%5u %20s (%s)' % (acct.user_code, acct.name, ', '.join(perms))
+    if acct.restrict is not None:
+        perms = []
+        if acct.restrict.grant_copy:
+            perms.append('copy')
+        if acct.restrict.grant_printer:
+            perms.append('print')
+        if acct.restrict.grant_scanner:
+            perms.append('scan')
+        if acct.restrict.grant_storage:
+            perms.append('storage')
+        perm_str = ', '.join(perms)
+    else:
+        perm_str = '<unknown perms>'
+    print u'%5u %20s (%s)' % (acct.user_code, acct.name, perm_str)
     print u'      stats (A4, A3): copy: %4d, %4d  print: %4d, %4d  ' \
             u'scan: %4d, %4d' % (acct.stats.copy_a4, acct.stats.copy_a3,
             acct.stats.print_a4, acct.stats.print_a3, acct.stats.scan_a4,
@@ -201,11 +205,13 @@ def main():
     elif mode == 'load':
         load_cf = SafeConfigParser()
         load_cf.readfp(sys.stdin)
+        # TODO: Allow (re-)adding users.
+        # TODO: Delete not-listed users.
         if options.user_code is not None:
             print u"Loading data for individual user code %d ..." % \
                     (options.user_code)
             acct = load_acct(load_cf, options.user_code)
-            um.add_user(acct)
+            um.set_user_info(acct)
         else:
             print u"Loading all user data ..."
             SECTION_PREFIX = USER_CODE_SECTION + ' '
@@ -215,7 +221,10 @@ def main():
             for user_code in user_codes:
                 acct = load_acct(load_cf, user_code)
                 show_acct(acct)
-                um.add_user(acct)
+                try:
+                    um.set_user_info(acct)
+                except accounts.UserMaintError, ex:
+                    print ex
 
 if __name__ == '__main__':
     main()
