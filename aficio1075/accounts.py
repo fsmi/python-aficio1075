@@ -33,7 +33,12 @@ from aficio1075.encoding import encode, decode, DEFAULT_STRING_ENCODING
 
 
 def _get_text_node(path, base_node):
-    return base_node.find(path).text
+    if base_node is None:
+        return None
+    node = base_node.find(path)
+    if node is None:
+        return None
+    return node.text
 
 def _get_operation_result(operation_node, oper_name):
     if operation_node.tag != 'operationResult':
@@ -163,7 +168,7 @@ class UserStatistics(object):
 
     @staticmethod
     def _sub_info_to_xml(parent_node, single_val, double_val):
-        mono = SubElement(parent, 'monochrome')
+        mono = SubElement(parent_node, 'monochrome')
         SubElement(mono, 'singleSize').text = '%u' % single_val
         SubElement(mono, 'doubleSize').text = '%u' % double_val
 
@@ -172,9 +177,9 @@ class UserStatistics(object):
         self._sub_info_to_xml(SubElement(stats_node, 'copyInfo'),
                 self.copy_a4, self.copy_a3)
         self._sub_info_to_xml(SubElement(stats_node, 'printerInfo'),
-                self.copy_a4, self.copy_a3)
+                self.print_a4, self.print_a3)
         self._sub_info_to_xml(SubElement(stats_node, 'scannerInfo'),
-                self.copy_a4, self.copy_a3)
+                self.scan_a4, self.scan_a3)
         return stats_node
 
 
@@ -282,14 +287,21 @@ class User(object):
     def to_xml(self):
         user = Element('user', version='1.1')
         if self.user_code is not None:
-            SubElement(user, 'userCode').text = '%u' % self.user_code
+            # 'other' is a special case.
+            if self.user_code == 0:
+                user_code_str = 'other'
+                SubElement(user, 'userType').text = 'other'
+            else:
+                user_code_str = '%u' % self.user_code
+                SubElement(user, 'userType').text = 'general'
+            SubElement(user, 'userCode').text = user_code_str
         if self.name is not None:
             SubElement(user, 'userCodeName', enc=DEFAULT_STRING_ENCODING)\
                     .text = encode(self.name, DEFAULT_STRING_ENCODING)
         if self.restrict is not None:
             user.append(self.restrict.to_xml())
         if self.stats is not None and self.stats.modified:
-            user.append(self.restrict.to_xml())
+            user.append(self.stats.to_xml())
         return user
 
     @staticmethod
@@ -427,7 +439,12 @@ class UserMaintSession(object):
             req_statistics_info=True):
         req = Element('getUserInfoRequest')
         target = SubElement(req, 'target')
-        SubElement(target, 'userCode').text = str(user_code)
+        # 'other' is a special case.
+        if user_code == 0:
+            user_code_str = 'other'
+        else:
+            user_code_str = str(user_code)
+        SubElement(target, 'userCode').text = user_code_str
 
         user = SubElement(req, 'user', version='1.1')
 
@@ -456,7 +473,12 @@ class UserMaintSession(object):
         """Modify a user account."""
         req = Element('setUserInfoRequest')
         target = SubElement(req, 'target')
-        SubElement(target, 'userCode').text = '%u' % user.orig_user_code
+        # 'other' is a special case.
+        if user.orig_user_code == 0:
+            user_code_str = 'other'
+        else:
+            user_code_str = str(user.orig_user_code)
+        SubElement(target, 'userCode').text = user_code_str
         SubElement(target, 'deviceId')
         req.append(user.to_xml())
 
