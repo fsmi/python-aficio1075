@@ -1,3 +1,18 @@
+python-aficio1075 (0.6-1) fsmi-lenny; urgency=low
+
+  * New upstream release:
+    - aficio1075.accounts: fix obvious bugs in statistics modification
+    - aficio1075.accounts: improve support of setting "other" account.
+    - aficio1075.accounts: slightly improve error resistance
+    - af-accounts: implement "dump"
+    - af-accounts: add "load" mode and modify "dump" mode to use
+      ConfigParser
+    - af-accounts: fix a few "load" issues, so that it would theoretically
+      work, if the printer supported loading non-zero counter values.
+  * Bump standards version (no changes).
+
+ -- Fabian Knittel <fabian.knittel@avona.com>  Thu, 18 Nov 2010 11:51:52 +0100
+
 python-aficio1075 (0.5-1) fsmi-lenny; urgency=low
 
   * New upstream release:
