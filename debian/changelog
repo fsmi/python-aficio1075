@@ -1,3 +1,9 @@
+python-aficio1075 (0.6-2) fsmi-squeeze; urgency=low
+
+  * af-sync-ppds: fix foomatic user code syntax
+
+ -- Philipp Kern <pkern@debian.org>  Sat, 08 Jan 2011 18:35:51 +0100
+
 python-aficio1075 (0.6-1) fsmi-lenny; urgency=low
 
   * New upstream release:
