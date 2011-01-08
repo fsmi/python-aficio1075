@@ -71,7 +71,7 @@ def stream_update_codes(in_f, out_f, codes):
             elif line.startswith('*CloseUI: *Code'):
                 within_code_ui = False
                 for code in codes:
-                    out_f.write(enc_str('*Code %d/%s %d: "%% ' \
+                    out_f.write(enc_str('*Code %d/%s %d: "%%%% ' \
                             'FoomaticRIPOptionSetting: Code=%d"\n' % (
                             code[0], code[1], code[0], code[0])))
         out_f.write(line)
