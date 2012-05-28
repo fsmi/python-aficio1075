@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et fileencoding=utf-8:
 
 # aficio1075/security.py -- Password encryption and decryption used by the
 #   Ricoh Aficio 1075.
 #
 # Copyright (C) 2008 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
-# Copyright (C) 2008 Fabian Knittel <fabian.knittel@fsmi.uni-karlsruhe.de>
+# Copyright (C) 2008 Fabian Knittel <fabian.knittel@lettink.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

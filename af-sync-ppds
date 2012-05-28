@@ -1,11 +1,10 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-# vim:set ft=python ts=4 sw=4 et:
+# vim:set ft=python ts=4 sw=4 et fileencoding=utf-8:
 
 # af-sync-ppds -- Update the list of available user codes in one or more PPD
 #   files.
 #
-# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@lettink.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

@@ -1,9 +1,9 @@
-# vim:set ft=python ts=4 sw=4 et encoding=utf-8:
+# vim:set ft=python ts=4 sw=4 et fileencoding=utf-8:
 
 # aficio1075/delivery_input.py -- adapter for the XMLRPC and SOAP interfaces of
 #   Ricoh Aficio 1075
 #
-# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@avona.com>
+# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@lettink.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
