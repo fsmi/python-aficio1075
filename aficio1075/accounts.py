@@ -64,6 +64,23 @@ class UserMaintError(RuntimeError):
         self.code = code
 
 class UserStatistics(object):
+    """This class represents a set of access restrictions.
+
+    If `grant_copy` is ``True``, then use of the printer's copy function is
+    granted.
+    If `grant_printer` is ``True``, then use of the printer's print function is
+    granted.
+    If `grant_scanner` is ``True``, then use of the printer's scan function is
+    granted.
+    If `grant_storage` is ``True``, then use of the printer's document storage
+    function is granted.
+
+    It supports serialisation to and deserialisation from XML using
+    :meth:`to_xml` and :meth:`from_xml`.
+
+    The class tracks whether it was modified, using the `modified` attribute.
+    Class users need to reset `modified` as needed.
+    """
     def __init__(self, copy_a4=0, copy_a3=0, print_a4=0,
             print_a3=0, scan_a4=0, scan_a3=0):
         self._copy_a4 = copy_a4
@@ -184,6 +201,20 @@ class UserStatistics(object):
 
 
 class UserRestrict(object):
+    """This class represents a set of access restrictions.
+
+    If `grant_copy` is ``True``, then use of the printer's copy function is
+    granted.
+    If `grant_printer` is ``True``, then use of the printer's print function is
+    granted.
+    If `grant_scanner` is ``True``, then use of the printer's scan function is
+    granted.
+    If `grant_storage` is ``True``, then use of the printer's document storage
+    function is granted.
+
+    It supports serialisation to and deserialisation from XML using
+    :meth:`to_xml` and :meth:`from_xml`.
+    """
     def __init__(self, grant_copy=False, grant_printer=False,
             grant_scanner=False, grant_storage=False):
         self.grant_copy = grant_copy
@@ -239,6 +270,15 @@ class UserRestrict(object):
                         'localStorageInfo/plot/available') is not None)
 
 class User(object):
+    """This class represents a single user in the printer's user accounting.  It
+    can have a user name `name`, a user code `user_code`, a set of access
+    restrictions `restrict` of type :class:`UserRestrict` and printing
+    statistics of type :class:`UserStatistics` associated with itsself.
+
+    It supports serialisation to and deserialisation from XML using
+    :meth:`to_xml` and :meth:`from_xml`.
+    """
+
     MAX_NAME_LEN = 20
 
     def __init__(self, user_code, name, restrict=None, stats=None):
@@ -249,10 +289,14 @@ class User(object):
 
     def _set_user_code(self, user_code):
         if not hasattr(self, '_orig_user_code'):
+            # Remember the original user code, as currently known to the
+            # printer, so that any changes can be properly associated with that
+            # user code.
             if hasattr(self, '_user_code'):
                 self._orig_user_code = self._user_code
         self._user_code = user_code
     def _get_user_code(self):
+        """The account's user code property."""
         return self._user_code
     user_code = property(_get_user_code, _set_user_code)
 
@@ -267,6 +311,7 @@ class User(object):
     def notify_flushed(self):
         """Inform the object, that the data was flushed to the server."""
         if hasattr(self, '_orig_user_code'):
+            # The server now knows of the updated user code.
             del self._orig_user_code
         if self.stats is not None and self.stats.modified:
             self.stats.modified = False
@@ -391,7 +436,7 @@ class UserMaintSession(object):
             time.sleep(0.2)
 
     def add_user(self, user):
-        """Add a user account."""
+        """Add object `user` of type :class:`User` as user account."""
         req = Element('addUserRequest')
         target = SubElement(req, 'target')
         SubElement(target, 'userCode').text = '%u' % user.user_code
@@ -404,7 +449,7 @@ class UserMaintSession(object):
         user.notify_flushed()
 
     def delete_user(self, user_code):
-        """Delete a user account."""
+        """Delete user account with user code number `user_code`."""
         req = Element('deleteUserRequest')
         target = SubElement(req, 'target')
         SubElement(target, 'userCode').text = '%u' % user_code
@@ -417,18 +462,35 @@ class UserMaintSession(object):
     def get_user_info(self, user_code, req_user_code=True,
             req_user_code_name=True, req_restrict_info=True,
             req_statistics_info=True):
-        """Get information about a user account.
-        Returns a User instance in case the user was found or else throws a
-        UserMaintError."""
-        return self._get_user_info(user_code, req_user_code, req_user_code_name,
-                req_restrict_info, req_statistics_info)[0]
+        """Get information about user account with user code number `user_code`.
+        Returns a :class:`User` instance in case the user was found or else
+        throws :class:`UserMaintError`.
+        If `req_user_code` is ``True``, the user's user code is requested.
+        If `req_user_code_name` is ``True``, the user's name is requested.
+        If `req_restrict_info` is ``True``, the user's access restrictions are
+        requested.
+        If `req_statistics_info` is ``True``, the user's printing statistics are
+        requested.
+        """
+        return self._get_user_info(user_code=user_code,
+                req_user_code=req_user_code,
+                req_user_code_name=req_user_code_name,
+                req_restrict_info=req_restrict_info,
+                req_statistics_info=req_statistics_info)[0]
 
     def get_user_infos(self, req_user_code=True,
             req_user_code_name=True, req_restrict_info=True,
             req_statistics_info=True):
         """Request information about all user accounts.
-        Returns a list of User instances. Throws a UserMaintError in case of an
-        error."""
+        Returns a list of :class:`User` instances. Throws
+        :class:`UserMaintError` in case of an error.
+        If `req_user_code` is ``True``, the users' user codes are requested.
+        If `req_user_code_name` is ``True``, the users' names are requested.
+        If `req_restrict_info` is ``True``, the users' access restrictions are
+        requested.
+        If `req_statistics_info` is ``True``, the users' printing statistics are
+        requested.
+        """
         return self._get_user_info(req_user_code=req_user_code,
                 req_user_code_name=req_user_code_name,
                 req_restrict_info=req_restrict_info,
@@ -470,7 +532,10 @@ class UserMaintSession(object):
         return users
 
     def set_user_info(self, user):
-        """Modify a user account."""
+        """Modify user account associated with `user`, which is an instance of
+        :class:`User`.
+        Throws :class:`UserMaintError` in case of an error.
+        """
         req = Element('setUserInfoRequest')
         target = SubElement(req, 'target')
         # 'other' is a special case.
