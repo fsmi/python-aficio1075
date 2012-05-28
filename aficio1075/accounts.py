@@ -1,10 +1,15 @@
 # vim:set ft=python ts=4 sw=4 et fileencoding=utf-8:
+"""
+Adapter for the XMLRPC account management interfaces of Ricoh Aficio 1075
+printers.
 
-# aficio1075/accounts.py -- Adapter for the XMLRPC interfaces of Ricoh Aficio
-#   1075 concerning account management.
-#
+Provides :class:`UserMaintSession` which allows :class:`User`s to be queried,
+added, modified and deleted.  A user has associated :class:`UserStatistics` and
+:class:`UserRestrict` instances, which represent printer statistics and access
+restrictions (respectively).
+"""
 # Copyright (C) 2007 Philipp Kern <philipp.kern@fsmi.uni-karlsruhe.de>
-# Copyright (C) 2008, 2010 Fabian Knittel <fabian.knittel@lettink.de>
+# Copyright (C) 2008, 2010, 2012 Fabian Knittel <fabian.knittel@lettink.de>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
