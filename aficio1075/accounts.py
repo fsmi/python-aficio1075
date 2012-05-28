@@ -69,16 +69,13 @@ class UserMaintError(RuntimeError):
         self.code = code
 
 class UserStatistics(object):
-    """This class represents a set of access restrictions.
+    """This class represents a set of print operation statistics.
 
-    If `grant_copy` is ``True``, then use of the printer's copy function is
-    granted.
-    If `grant_printer` is ``True``, then use of the printer's print function is
-    granted.
-    If `grant_scanner` is ``True``, then use of the printer's scan function is
-    granted.
-    If `grant_storage` is ``True``, then use of the printer's document storage
-    function is granted.
+    `copy_a4` is the number of performed copies of size A4.  Same for `copy_a3`
+    only for size A3.
+
+    `print_a4` and `print_a3` note the number of prints and `scan_a4` and
+    `scan_a3` note the number of scans.
 
     It supports serialisation to and deserialisation from XML using
     :meth:`to_xml` and :meth:`from_xml`.
@@ -103,6 +100,9 @@ class UserStatistics(object):
                 'modified' if self.modified else 'unmodified')
 
     def set_zero(self):
+        """Resets all counters to zero.
+        """
+        # Note: The properties implicitly set the modified flag.
         self.copy_a4 = 0
         self.copy_a3 = 0
         self.print_a4 = 0
@@ -111,6 +111,7 @@ class UserStatistics(object):
         self.scan_a3 = 0
 
     def get_copy_a4(self):
+        """Holds the number of A4 copies created."""
         return self._copy_a4
     def set_copy_a4(self, val):
         self.modified = True
@@ -118,6 +119,7 @@ class UserStatistics(object):
     copy_a4 = property(get_copy_a4, set_copy_a4)
 
     def get_copy_a3(self):
+        """Holds the number of A3 copies created."""
         return self._copy_a3
     def set_copy_a3(self, val):
         self.modified = True
@@ -125,6 +127,7 @@ class UserStatistics(object):
     copy_a3 = property(get_copy_a3, set_copy_a3)
 
     def get_print_a4(self):
+        """Holds the number of A4 prints created."""
         return self._print_a4
     def set_print_a4(self, val):
         self.modified = True
@@ -132,6 +135,7 @@ class UserStatistics(object):
     print_a4 = property(get_print_a4, set_print_a4)
 
     def get_print_a3(self):
+        """Holds the number of A3 prints created."""
         return self._print_a3
     def set_print_a3(self, val):
         self.modified = True
@@ -139,6 +143,7 @@ class UserStatistics(object):
     print_a3 = property(get_print_a3, set_print_a3)
 
     def get_scan_a4(self):
+        """Holds the number of A4 scans created."""
         return self._scan_a4
     def set_scan_a4(self, val):
         self.modified = True
@@ -146,6 +151,7 @@ class UserStatistics(object):
     scan_a4 = property(get_scan_a4, set_scan_a4)
 
     def get_scan_a3(self):
+        """Holds the number of A3 scans created."""
         return self._scan_a3
     def set_scan_a3(self, val):
         self.modified = True
@@ -154,17 +160,28 @@ class UserStatistics(object):
 
     @property
     def copy_a4_total(self):
+        """Total number of copies created, calculcated in A4 equivalents. (One
+        A3 page is counted as two A4 pages.)
+        """
         return self.copy_a4 + (self.copy_a3 * 2)
 
     @property
     def print_a4_total(self):
+        """Total number of prints created, calculcated in A4 equivalents. (One
+        A3 page is counted as two A4 pages.)
+        """
         return self.print_a4 + (self.print_a3 * 2)
 
     @property
     def scan_a4_total(self):
+        """Total number of scans created, calculcated in A4 equivalents. (One
+        A3 page is counted as two A4 pages.)
+        """
         return self.scan_a4 + (self.scan_a3 * 2)
 
     def is_zero(self):
+        """Returns ``True`` in case all page counters are zero.
+        """
         return self.copy_a4_total == 0 and \
                 self.print_a4_total == 0 and \
                 self.scan_a4_total == 0
